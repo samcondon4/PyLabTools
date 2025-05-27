@@ -1,5 +1,5 @@
-spherexlabtools.ui.top
+pylabtools.ui.top
 #######################
 
-.. automodule:: spherexlabtools.ui.top
+.. automodule:: pylabtools.ui.top
     :members:

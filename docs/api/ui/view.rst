@@ -1,5 +1,5 @@
-spherexlabtools.ui.view
+pylabtools.ui.view
 #######################
 
-.. automodule:: spherexlabtools.ui.view
+.. automodule:: pylabtools.ui.view
     :members:

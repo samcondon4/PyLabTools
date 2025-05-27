@@ -1,4 +1,4 @@
-# spherexlabtools.instruments #
+# pylabtools.instruments #
 from .instrument import CompoundInstrument, InstrumentSuite
 #from . import edmund
 #from . import flir

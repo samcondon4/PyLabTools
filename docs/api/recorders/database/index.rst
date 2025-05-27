@@ -1,4 +1,4 @@
-spherexlabtools.recorders.database
+pylabtools.recorders.database
 ###################################
 
 .. toctree::

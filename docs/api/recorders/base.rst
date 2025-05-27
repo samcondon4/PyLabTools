@@ -1,7 +1,7 @@
 Base Recorder Class
 ###################
 
-.. autoclass:: spherexlabtools.recorders.recorder.Recorder
+.. autoclass:: pylabtools.recorders.recorder.Recorder
     :members:
     :show-inheritance:
 

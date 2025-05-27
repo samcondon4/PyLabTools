@@ -130,7 +130,7 @@ dmypy.json
 
 # Configuration files
 .ini
-spherexlabtools/calibration/spectral/config
+pylabtools/calibration/spectral/config
 
 # pycharm project files #
 .idea

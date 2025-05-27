@@ -1,4 +1,4 @@
-spherexlabtools.recorders.plaintext
+pylabtools.recorders.plaintext
 ####################################
 
 .. toctree::

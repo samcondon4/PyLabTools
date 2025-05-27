@@ -1,4 +1,4 @@
-""" spherexlabtools.experiment
+""" pylabtools.experiment
 
 Sam Condon, 01/27/2022
 """
@@ -9,17 +9,17 @@ import threading
 import pyqtgraph as pg
 from PyQt5 import QtWidgets, QtCore, QtGui
 from .loader import load_objects_from_cfg_list
-import spherexlabtools.log as slt_log
-import spherexlabtools.viewers as slt_view
-import spherexlabtools.procedures as slt_proc
-import spherexlabtools.recorders as slt_record
-import spherexlabtools.controllers as slt_control
-from spherexlabtools.instruments import InstrumentSuite
-from spherexlabtools.ui import TopUI, StackedHelper
+import pylabtools.log as slt_log
+import pylabtools.viewers as slt_view
+import pylabtools.procedures as slt_proc
+import pylabtools.recorders as slt_record
+import pylabtools.controllers as slt_control
+from pylabtools.instruments import InstrumentSuite
+from pylabtools.ui import TopUI, StackedHelper
 
 
 # - configure top gui and logging parameters - #
-app = pg.mkQApp("SPHERExLabTools")
+app = pg.mkQApp("PyLabTools")
 top_widget = QtWidgets.QWidget()
 top_ui = TopUI(top_widget)
 slt_log.LOGGER_GUI_SIGNAL = top_ui.ui_log_signal
@@ -28,7 +28,7 @@ logger = logging.getLogger(slt_log.LOGGER_NAME)
 
 
 class Experiment:
-    """ The core class of the spherexlabtools package. The basic operating principle of spherexlabtools
+    """ The core class of the pylabtools package. The basic operating principle of pylabtools
         is implemented by this class. Namely, that every action that is performed in an experiment, be
         that the recording of data, or setting instrument parameters via a gui, is executed in its own thread.
         This class handles the scheduling of all threads and ensures that each thread has the resources that

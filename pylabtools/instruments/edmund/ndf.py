@@ -11,7 +11,7 @@ import logging
 import numpy as np
 from pymeasure.instruments import Instrument
 from pymeasure.instruments.validators import strict_discrete_range
-sys.path.append(os.path.join(os.environ["SPHEREXLABTOOLS"], "spherexlabtools", "instruments", "edmund", "NDFWheel_DLLs"))
+sys.path.append(os.path.join(os.environ["SPHEREXLABTOOLS"], "pylabtools", "instruments", "edmund", "NDFWheel_DLLs"))
 clr.AddReference("OptecHID_FilterWheelAPI")
 from OptecHID_FilterWheelAPI import FilterWheels
 from OptecHID_FilterWheelAPI import FilterWheel

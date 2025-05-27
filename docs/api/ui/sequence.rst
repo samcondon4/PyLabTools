@@ -1,5 +1,5 @@
-spherexlabtools.ui.sequence
+pylabtools.ui.sequence
 ###########################
 
-.. automodule:: spherexlabtools.ui.sequence
+.. automodule:: pylabtools.ui.sequence
     :members:

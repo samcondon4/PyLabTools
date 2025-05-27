@@ -1,7 +1,7 @@
 Configuration Dictionaries
 ###########################
 
-| As discussed in ample places throughout this documentation, SPHERExLabTools is configured by populating 5 *configuration variables*
+| As discussed in ample places throughout this documentation, PyLabTools is configured by populating 5 *configuration variables*
   with *configuration dictionaries.* These *configuration variables* are as follows:
 
     1. :ref:`INSTRUMENT_SUITE <user_guide/configuration:Hardware Configuration (INSTRUMENT_SUITE)>`
@@ -29,17 +29,17 @@ Hardware Configuration (INSTRUMENT_SUITE)
         "params": '(OPTIONAL) set of initial intrument parameter values.'
     }
 
-| Note that the structure of the SPHERExLabTools (and PyMeasure) instrument repositories is:
+| Note that the structure of the PyLabTools (and PyMeasure) instrument repositories is:
 
     instruments/
         - manufacturer/
             - instrument_driver.py
                 -InstrumentDriverClass
 
-| So the 'manufacturer' key in the dictionary above must contain the name of a manufacturer folder within either the PyMeasure or SPHERExLabTools
+| So the 'manufacturer' key in the dictionary above must contain the name of a manufacturer folder within either the PyMeasure or PyLabTools
   instrument repositories. Likewise, the 'instrument' key must contain the name of a driver class defined within the specified 'manufacturer' folder.
 
-| All instrument drivers in SPHERExLabTools and PyMeasure utilize the **PyVisa** libary under-the-hood to handle the low-level instrument communication
+| All instrument drivers in PyLabTools and PyMeasure utilize the **PyVisa** libary under-the-hood to handle the low-level instrument communication
   details. For every instrument connected to a computer, PyVisa assigns a unique **Resource Name**. The 'resource_name' key must contain a string that
   matches the pyvisa assigned resource name. This value can be determined for a given instrument by executing the following code in a Python interactive
   session:
@@ -70,7 +70,7 @@ Procedure Configuration (PROCEDURES)
         "params": '(OPTIONAL) set of initial procedure parameter values.'
     }
 
-| Note that the **type** key must contain the name of a class that has been imported into the namespace **procedures**. I.e., SPHERExLabTools takes
+| Note that the **type** key must contain the name of a class that has been imported into the namespace **procedures**. I.e., PyLabTools takes
   the string written in **type** (say 'ProcClass') and tries to instantiate the class with: procedures.ProcClass.
 
 | The **hw** key is a list of instrument **instance names** i.e. those strings that we used for the **instance_name** key in our hardware configuration

@@ -1,3 +1,3 @@
-spherexlabtools.ui.helpers
+pylabtools.ui.helpers
 ###########################
 

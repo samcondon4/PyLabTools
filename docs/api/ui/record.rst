@@ -1,5 +1,5 @@
-spherexlabtools.ui.record
+pylabtools.ui.record
 ##########################
 
-.. automodule:: spherexlabtools.ui.record
+.. automodule:: pylabtools.ui.record
     :members:

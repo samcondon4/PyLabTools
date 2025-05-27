@@ -13,7 +13,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 class TopQt(object):
     def setupUi(self, Form):
-        Form.setObjectName("SPHERExLabTools")
+        Form.setObjectName("PyLabTools")
         Form.resize(1039, 757)
         self.gridLayout = QtWidgets.QGridLayout(Form)
         self.gridLayout.setObjectName("gridLayout")
@@ -61,12 +61,12 @@ class TopQt(object):
 
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
-        Form.setWindowTitle(_translate("SPHERExLabTools", "SPHERExLabTools"))
-        self.logBrowser.setHtml(_translate("SPHERExLabTools", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+        Form.setWindowTitle(_translate("PyLabTools", "PyLabTools"))
+        self.logBrowser.setHtml(_translate("PyLabTools", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
                                                    "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
                                                    "p, li { white-space: pre-wrap; }\n"
                                                    "</style></head><body style=\" font-family:\'Sans Serif\'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
-                                                   "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:12pt; color:#00007f;\"># ---------------- SPHERExLabTools v0.8------------------- #</span></p>\n"
+                                                   "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:12pt; color:#00007f;\"># ---------------- PyLabTools v0.8------------------- #</span></p>\n"
                                                    "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'Consolas,BitstreamVeraSansMono,CourierNew,Courier,monospace\'; font-size:6pt; color:#000000;\">                                     .....                                     </span></p>\n"
                                                    "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'Consolas,BitstreamVeraSansMono,CourierNew,Courier,monospace\'; font-size:6pt; color:#000000;\">                                              ........                          </span></p>\n"
                                                    "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'Consolas,BitstreamVeraSansMono,CourierNew,Courier,monospace\'; font-size:6pt; color:#000000;\">                      /                              </span><span style=\" font-family:\'Consolas,BitstreamVeraSansMono,CourierNew,Courier,monospace\'; font-size:6pt; color:#ffff00;\">..</span><span style=\" font-family:\'Consolas,BitstreamVeraSansMono,CourierNew,Courier,monospace\'; font-size:6pt; color:#000000;\">                         </span></p>\n"
@@ -96,8 +96,8 @@ class TopQt(object):
                                                    "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'Consolas,BitstreamVeraSansMono,CourierNew,Courier,monospace\'; font-size:6pt; color:#000000;\">                            #######                  #                          </span></p>\n"
                                                    "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'Consolas,BitstreamVeraSansMono,CourierNew,Courier,monospace\'; font-size:6pt; color:#000000;\">                                      #####  </span></p>\n"
                                                    "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:12pt; color:#00007f;\"># -------------------------------------------------------------------- #</span></p></body></html>"))
-        self.Tab_log_threads.setTabText(self.Tab_log_threads.indexOf(self.log_tab), _translate("SPHERExLabTools", "Log"))
-        self.Tab_log_threads.setTabText(self.Tab_log_threads.indexOf(self.threads_tab), _translate("SPHERExLabTools", "Threads"))
+        self.Tab_log_threads.setTabText(self.Tab_log_threads.indexOf(self.log_tab), _translate("PyLabTools", "Log"))
+        self.Tab_log_threads.setTabText(self.Tab_log_threads.indexOf(self.threads_tab), _translate("PyLabTools", "Threads"))
 
 
 # - top ui wrapper - #

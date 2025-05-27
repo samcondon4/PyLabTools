@@ -1,2 +1,2 @@
-Using the SPHERExLabTools Interface
+Using the PyLabTools Interface
 ####################################

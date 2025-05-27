@@ -21,7 +21,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 #
-# Modifications made to support the needs of SPHERExLabTools: Sam Condon 03/16/2022
+# Modifications made to support the needs of PyLabTools: Sam Condon 03/16/2022
 import inspect
 from copy import deepcopy
 

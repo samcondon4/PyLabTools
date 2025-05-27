@@ -9,11 +9,11 @@ from email.mime.text import MIMEText
 
 from pyqtgraph.parametertree import Parameter, ParameterTree
 
-import spherexlabtools.log as slt_log
-from spherexlabtools.record import Record
-from spherexlabtools.ui.record import RecordUI
-from spherexlabtools.thread import StoppableReusableThread
-from spherexlabtools.parameters import ParameterInspect, Parameter, FloatParameter, IntegerParameter, BooleanParameter
+import pylabtools.log as slt_log
+from pylabtools.record import Record
+from pylabtools.ui.record import RecordUI
+from pylabtools.thread import StoppableReusableThread
+from pylabtools.parameters import ParameterInspect, Parameter, FloatParameter, IntegerParameter, BooleanParameter
 
 log_name = f"{slt_log.LOGGER_NAME}.{__name__.split('.')[-1]}"
 logger = logging.getLogger(log_name)

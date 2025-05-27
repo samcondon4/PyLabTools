@@ -1,6 +1,6 @@
 Record Class
 #############
 
-.. automodule:: spherexlabtools.record
+.. automodule:: pylabtools.record
     :members:
 

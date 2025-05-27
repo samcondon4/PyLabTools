@@ -1,4 +1,4 @@
-spherexlabtools.ui
+pylabtools.ui
 ##################
 
 .. toctree::

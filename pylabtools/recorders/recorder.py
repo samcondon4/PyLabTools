@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 from pyqtgraph.parametertree.parameterTypes import FileParameter
 
-import spherexlabtools.log as slt_log
-from spherexlabtools.thread import QueueThread
+import pylabtools.log as slt_log
+from pylabtools.thread import QueueThread
 
 log_name = f"{slt_log.LOGGER_NAME}.{__name__.split('.')[-1]}"
 logger = logging.getLogger(log_name)

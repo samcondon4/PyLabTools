@@ -1,7 +1,7 @@
 Step-by-Step Experiment Configuration
 ######################################
 
-| This section utilizes the pymeasure SwissArmyFake class to work through each step of configuring SPHERExLabTools for
+| This section utilizes the pymeasure SwissArmyFake class to work through each step of configuring PyLabTools for
   a given experiment. The SwissArmyFake class generates mock data as if it were a real instrument, but does not require
   a connection to any real hardware.
 
@@ -13,7 +13,7 @@ Step-by-Step Experiment Configuration
 0) Setting up the configuration file structure
 -----------------------------------------------
 
-| As discussed in :ref:`Fundamentals <user_guide/fundamentals/index:Fundamentals>`, SPHERExLabTools reads user defined :ref:`Experiment Control Packages <user_guide/fundamentals/index:Experiment Control Packages>`
+| As discussed in :ref:`Fundamentals <user_guide/fundamentals/index:Fundamentals>`, PyLabTools reads user defined :ref:`Experiment Control Packages <user_guide/fundamentals/index:Experiment Control Packages>`
   to configure control software for a given experiment. Experiment control packages define the 5 configuration variables:
 
     - INSTRUMENT_SUITE: python list of hardware configuration dictionaries.
@@ -59,9 +59,9 @@ Step-by-Step Experiment Configuration
     CONTROLLERS = []
     INSTRUMENT_SUITE = []
 
-| Note the definition of all 5 of the aforementioned configuration variables. To configure SPHERExLabTools, we populate these variables
+| Note the definition of all 5 of the aforementioned configuration variables. To configure PyLabTools, we populate these variables
   with configuration dictionaries corresponding to each component of the control software. In the following steps, do not worry too much about the
-  contents of the configuration dictionaries that we define. The purpose of this tutorial is to get a big picture sense of how SPHERExLabTools
+  contents of the configuration dictionaries that we define. The purpose of this tutorial is to get a big picture sense of how PyLabTools
   is configured, not to understand all of the details of configuration dictionary syntax. These syntax details can be found at:
   :ref:`Configuration Dictionaries <user_guide/configuration:Configuration Dictionaries>`
 
@@ -90,7 +90,7 @@ Step-by-Step Experiment Configuration
         "resource_name": 0.3
     }
 
-| We have now defined a few hardware configuration dictionaries, but SPHERExLabTools will not be able to see that these exist if we do not add them to the
+| We have now defined a few hardware configuration dictionaries, but PyLabTools will not be able to see that these exist if we do not add them to the
   **INSTRUMENT_SUITE** list. Back in the __init__.py file, add each dictionary to the **INSTRUMENT_SUITE** variable:
 
 .. code-block:: python
@@ -101,7 +101,7 @@ Step-by-Step Experiment Configuration
 2) First instrument controller
 -------------------------------
 
-| Now, we can add a few controller configuration dictionaries to allow us to control the parameters of our newly added instruments with the SPHERExLabTools
+| Now, we can add a few controller configuration dictionaries to allow us to control the parameters of our newly added instruments with the PyLabTools
   graphical interface!
 
 | Add the following block to control.py:
@@ -146,11 +146,11 @@ Step-by-Step Experiment Configuration
 
     CONTROLLERS = [control.TCCntrl, control.CamCntrl]
 
-| We can now start the SPHERExLabTools graphical interface. Start a python interactive session and run:
+| We can now start the PyLabTools graphical interface. Start a python interactive session and run:
 
 .. code-block:: python
 
-    >>> import spherexlabtools as slt
+    >>> import pylabtools as slt
     >>> import config
     >>> exp = slt.create_experiment(config)
     >>> exp.start()
@@ -159,7 +159,7 @@ Step-by-Step Experiment Configuration
 
 .. figure:: fig/first_controller_interface.png
 
-    SPHERExLabTools interface with first instrument controllers.
+    PyLabTools interface with first instrument controllers.
 
 | With this interface we can now set basic parameters of our instruments manually. The "Control" drop-down provides a carot drop-down
   for each parameter allowing parameters to be set individually, or all parameters can be set at once with the "Set All Parameters" button.
@@ -186,8 +186,8 @@ Step-by-Step Experiment Configuration
     import datetime
     import numpy as np
     import pandas as pd
-    from spherexlabtools.procedures import Procedure
-    from spherexlabtools.parameters import FloatParameter
+    from pylabtools.procedures import Procedure
+    from pylabtools.parameters import FloatParameter
 
 
     class HeaterProc(Procedure):
@@ -282,7 +282,7 @@ Step-by-Step Experiment Configuration
 4) Writing the procedure, viewer, and recorder configuration dictionaries
 --------------------------------------------------------------------------
 
-| We have now defined the procedure class which will run our measurement, but in order for SPHERExLabTools to be able to see the class we must define a
+| We have now defined the procedure class which will run our measurement, but in order for PyLabTools to be able to see the class we must define a
   procedure configuration dictionary and place it in the **PROCEDURES** configuration variable. First, add the following line to the __init__.py file found
   **in the procedures directory**:
 
@@ -374,7 +374,7 @@ Step-by-Step Experiment Configuration
 
 .. code-block:: python
 
-    >>> import spherexlabtools as slt
+    >>> import pylabtools as slt
     >>> import config
     >>> exp = slt.create_experiment(config)
     >>> exp.start()
@@ -385,4 +385,4 @@ Step-by-Step Experiment Configuration
 
     Final interface.
 
-| We have now completed the configuration of our SPHERExLabTools fake experiment. Now checkout: :ref:`Using the SPHERExLabTools Interface <tutorials/interface/index:Using the SPHERExLabTools Interface>`!
+| We have now completed the configuration of our PyLabTools fake experiment. Now checkout: :ref:`Using the PyLabTools Interface <tutorials/interface/index:Using the PyLabTools Interface>`!

@@ -1,4 +1,4 @@
-""" spherexlabtools.controllers.controller
+""" pylabtools.controllers.controller
 
 Sam Condon, 01/27/2022
 """
@@ -7,8 +7,8 @@ import logging
 from PyQt5 import QtWidgets, QtCore
 from pyqtgraph.parametertree import Parameter, ParameterTree
 
-import spherexlabtools.log as slt_log
-from spherexlabtools.ui import SequenceUI
+import pylabtools.log as slt_log
+from pylabtools.ui import SequenceUI
 from ..parameters import ParameterInspect
 from ..thread import StoppableReusableThread
 from ..parameters import Parameter as pymeasureParam

@@ -4,7 +4,7 @@
 """
 import logging
 import importlib
-import spherexlabtools.log as slt_log
+import pylabtools.log as slt_log
 
 log_name = f"{slt_log.LOGGER_NAME}.{__name__.split('.')[-1]}"
 logger = logging.getLogger(log_name)
@@ -25,14 +25,14 @@ def instantiate_instrument(inst_dict, exp, dev_links=None, **instance_kwargs):
 
     manufacturer_string = inst_dict["manufacturer"]
 
-    # first try to instantiate the instrument from the local instruments folder, then from spherexlabtools, then
+    # first try to instantiate the instrument from the local instruments folder, then from pylabtools, then
     # from pymeasure.
     try:  # - local instruments module - #
         inst_mod = getattr(exp.instruments, manufacturer_string)
         inst_class = getattr(inst_mod, inst_dict["instrument"])
     except (AttributeError, ModuleNotFoundError):
-        try:  # - spherexlabtools - #
-            inst_mod = importlib.import_module(name="spherexlabtools.instruments.%s" % manufacturer_string)
+        try:  # - pylabtools - #
+            inst_mod = importlib.import_module(name="pylabtools.instruments.%s" % manufacturer_string)
             inst_class = getattr(inst_mod, inst_dict["instrument"])
         except (AttributeError, ModuleNotFoundError):
             try:  # - pymeasure - #

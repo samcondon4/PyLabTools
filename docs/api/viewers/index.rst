@@ -1,14 +1,14 @@
-spherexlabtools.viewers
+pylabtools.viewers
 #######################
 
-.. autoclass:: spherexlabtools.viewers.Viewer
+.. autoclass:: pylabtools.viewers.Viewer
     :members:
     :show-inheritance:
 
-.. autoclass:: spherexlabtools.viewers.LineViewer
+.. autoclass:: pylabtools.viewers.LineViewer
     :members:
     :show-inheritance:
 
-.. autoclass:: spherexlabtools.viewers.ImageViewer
+.. autoclass:: pylabtools.viewers.ImageViewer
     :members:
     :show-inheritance:

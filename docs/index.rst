@@ -1,12 +1,12 @@
-.. SPHERExLabTools documentation master file, created by
+.. PyLabTools documentation master file, created by
    sphinx-quickstart on Tue Sep 13 09:11:29 2022.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-SPHERExLabTools DAQ and Instrument Control
+PyLabTools DAQ and Instrument Control
 ===========================================
 
-| SPHERExLabTools (SLT) provides a general purpose laboratory data acquisition and instrument control system with driver
+| PyLabTools (SLT) provides a general purpose laboratory data acquisition and instrument control system with driver
   level software for control of testbed instrumentation, graphical interfaces, real-time data visualization, processing,
   data archival tools for a variety of output file formats, and mechanisms to run manual and automated measurements.
   Each component is highly configurable with minimal manual coding required by a user.

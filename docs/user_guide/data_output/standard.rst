@@ -4,7 +4,7 @@ Output Data Standard
 Overview
 ---------
 
-| While SPHERExLabTools supports output to many file types, the principles of how experiment data is organized for
+| While PyLabTools supports output to many file types, the principles of how experiment data is organized for
   archival are common to all types. As described in :ref:`Fundamentals <user_guide/fundamentals/index:Fundamentals>`, data
   is generated and sent out for archival via :ref:`Procedures <user_guide/fundamentals/index:Procedures>`. Execution of an **individual procedure**
   generates data which is wrapped into a **Record**. A **procedure sequence** is a set of multiple procedures which execute in a loop to
@@ -28,7 +28,7 @@ Example
 --------
 
 | *note*: data values generated here are clearly physically unrealistic. Values in tables are simply to provide a demonstration of the
-  manner in which experimental data is organized with SPHERExLabTools.
+  manner in which experimental data is organized with PyLabTools.
 
 | Let's consider an example using the fake experiment generated in the :ref:`Step-by-Step Experiment Configuration <tutorials/stepbystep_config/index:Step-by-Step Experiment Configuration>`
   tutorial.

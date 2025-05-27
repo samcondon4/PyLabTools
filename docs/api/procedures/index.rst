@@ -1,10 +1,10 @@
-spherexlabtools.procedures
+pylabtools.procedures
 ##########################
 
-.. autoclass:: spherexlabtools.procedures.Procedure
+.. autoclass:: pylabtools.procedures.Procedure
     :members:
     :show-inheritance:
 
-.. autoclass:: spherexlabtools.procedures.LoggingProcedure
+.. autoclass:: pylabtools.procedures.LoggingProcedure
     :members:
     :show-inheritance:

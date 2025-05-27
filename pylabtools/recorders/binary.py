@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 # from astropy.io import fits
 
-import spherexlabtools.log as slt_log
-from spherexlabtools.recorders import Recorder
+import pylabtools.log as slt_log
+from pylabtools.recorders import Recorder
 
 
 class HDFRecorder(Recorder):

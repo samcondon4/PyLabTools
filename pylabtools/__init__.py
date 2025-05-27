@@ -1,4 +1,4 @@
-""" spherexlabtools
+""" pylabtools
 """
 
 # - version number - #

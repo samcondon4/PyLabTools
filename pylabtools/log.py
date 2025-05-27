@@ -29,7 +29,7 @@ class GuiStreamHandler(logging.StreamHandler):
 
 
 def configure_slt_log():
-    """ Configure the spherexlabtools logger classes.
+    """ Configure the pylabtools logger classes.
     """
     slt_logger = logging.getLogger(LOGGER_NAME)
     slt_logger.setLevel(LOGGER_LEVEL)

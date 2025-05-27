@@ -1,4 +1,4 @@
-spherexlabtools.recorders.binary
+pylabtools.recorders.binary
 #################################
 
 .. toctree::
