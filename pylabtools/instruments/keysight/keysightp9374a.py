@@ -43,6 +43,11 @@ class KeysightP9374a(SCPIMixin, Instrument):
             **kwargs
         )
 
+        # - output data format initialization - #
+        self.write('CALC:PAR:SEL CH1_S11_1')
+        self.write('FORM REAL,32')
+        self.write('FORM:BORD NORM')
+
     @property
     def trace_data(self):
         """ Return the active trace data as a numpy array.
