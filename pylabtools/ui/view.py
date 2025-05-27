@@ -4,8 +4,8 @@
     - :class:`.LineViewerWidget`
     - :class:`.ImageViewerWidget`
 
-    which serve to display the data buffered within the :class:`LineViewer <pylabtools.viewers.LineViewer>` and
-    :class:`ImageViewer <pylabtools.viewers.ImageViewer>` classes.
+    which serve to display the data buffered within the :class:`LineViewer <boettcherlabtools.viewers.LineViewer>` and
+    :class:`ImageViewer <boettcherlabtools.viewers.ImageViewer>` classes.
 """
 import datetime
 import pyqtgraph as pg
@@ -58,12 +58,16 @@ class LineViewerWidget(ViewerWidget):
 
         # - update the curve items - #
         for curve_name in new_curve_names:
-            data, pen_color = plot_dict[curve_name]
+            curve_dict = plot_dict[curve_name]
+            xdata, ydata, color = curve_dict['x'], curve_dict['y'], curve_dict['color']
             if curve_name not in self.curve_items.keys():
-                curve_item = pg.PlotCurveItem(name=curve_name, pen=pen_color)
+                curve_item = pg.PlotCurveItem(name=curve_name, pen=color)
                 self.curve_items[curve_name] = curve_item
                 self.plot_item.addItem(curve_item)
-            self.curve_items[curve_name].setData(data)
+            if xdata is None:
+                self.curve_items[curve_name].setData(ydata)
+            else:
+                self.curve_items[curve_name].setData(xdata, ydata)
 
 
 class ImageViewerWidget(ViewerWidget):

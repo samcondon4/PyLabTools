@@ -8,9 +8,9 @@ from scipy.ndimage import gaussian_filter
 from PyQt5.QtCore import QObject, pyqtSignal
 from pyqtgraph.parametertree import Parameter
 
-import pylabtools.log as slt_log
-from pylabtools.thread import QueueThread
-from pylabtools.ui import LineViewerWidget, ImageViewerWidget
+import boettcherlabtools.log as slt_log
+from boettcherlabtools.thread import QueueThread
+from boettcherlabtools.ui import LineViewerWidget, ImageViewerWidget
 
 pg.setConfigOption("imageAxisOrder", "row-major")
 logger = logging.getLogger(f"{slt_log.LOGGER_NAME}.{__name__}")
@@ -97,19 +97,39 @@ class LineViewer(Viewer):
         self.plot_lines_enable = Parameter.create(name='Lines', type='group', children=lines_enabled_children)
 
         # - set the default buffer size to be larger - #
-        self.buffer_size.setValue(100)
-        self.buffer_size.setDefault(100)
+        self.buffer_size.setValue(20)
+        self.buffer_size.setDefault(20)
 
     def update_display_object(self):
         """ Update the display object for the LineViewerWidget to plot. Sets the display object to be a dictionary of
-        the following form {'line name': (data, color of the line to plot)}
+        the following form 
+        display_object = {
+            'line name': {
+                'x': x axis data to plot. Can be None,
+                'y': y-axis data to plot, 
+                'color': color of the line
+            }
+        }
         """
         self.display_object = {}
         for plot_line_param in self.plot_lines_enable.children():
             if plot_line_param.value():
                 line_name = plot_line_param.name()
-                display_tup = (self.buffer[line_name].values, self.lines[line_name])
-                self.display_object[line_name] = display_tup
+                line_dict = self.lines[line_name]
+                # - must have y data so we want a key error if it doesn't exist.
+                # - for x and color, we take the defaults of None and 'r' if
+                # - they are not provided.
+                x_key = line_dict.get('x', None)
+                y_key = line_dict['y']
+                color_key = line_dict.get('color', 'r')
+                xdata = None if x_key is None else self.buffer[x_key].values
+                ydata = self.buffer[y_key].values
+                display_dict = {
+                    'x': xdata,
+                    'y': ydata,
+                    'color': color_key
+                }
+                self.display_object[line_name] = display_dict
 
 
 class ImageViewer(Viewer):
