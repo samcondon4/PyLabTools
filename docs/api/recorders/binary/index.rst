@@ -5,5 +5,4 @@ spherexlabtools.recorders.binary
     :maxdepth: 2
 
     hdf
-    fits
 
