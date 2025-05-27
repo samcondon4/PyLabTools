@@ -8,9 +8,9 @@ from scipy.ndimage import gaussian_filter
 from PyQt5.QtCore import QObject, pyqtSignal
 from pyqtgraph.parametertree import Parameter
 
-import boettcherlabtools.log as slt_log
-from boettcherlabtools.thread import QueueThread
-from boettcherlabtools.ui import LineViewerWidget, ImageViewerWidget
+import pylabtools.log as slt_log
+from pylabtools.thread import QueueThread
+from pylabtools.ui import LineViewerWidget, ImageViewerWidget
 
 pg.setConfigOption("imageAxisOrder", "row-major")
 logger = logging.getLogger(f"{slt_log.LOGGER_NAME}.{__name__}")
