@@ -138,3 +138,10 @@ class KeysightP9374a(SCPIMixin, Instrument):
         validator=strict_discrete_set,
         values=['MLIN', 'MLOG', 'PHAS', 'UPH', 'IMAG', 'REAL', 'POLAR'],
     )
+
+    electrical_delay = Instrument.control(
+        'CALC:CORR:EDEL:TIME?', 'CALC:CORR:EDEL:TIME %0.12f',
+        """Float indicating electrical delay in a signal propagating down line.""",
+        validator=truncated_range,
+        values=[0, 1e5],
+    )
