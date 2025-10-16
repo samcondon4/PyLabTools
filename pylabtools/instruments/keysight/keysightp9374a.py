@@ -78,7 +78,7 @@ class KeysightP9374a(SCPIMixin, Instrument):
         'SOUR:POW?', 'SOUR:POW %f',
         """Control the RF output power in dBm.""",
         validator=truncated_range,
-        values=[-40, 0],
+        values=[-40, 20],
     )
 
     if_bandwidth = Instrument.control(
