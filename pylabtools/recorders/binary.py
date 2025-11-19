@@ -2,7 +2,7 @@
 """
 
 import os
-
+import logging
 import numpy as np
 import pandas as pd
 # from astropy.io import fits
@@ -10,6 +10,8 @@ import pandas as pd
 import pylabtools.log as slt_log
 from pylabtools.recorders import Recorder
 
+log_name = f"{slt_log.LOGGER_NAME}.{__name__.split('.')[-1]}"
+logger = logging.getLogger(log_name)
 
 class HDFRecorder(Recorder):
     """ A non-merging recorder that writes the data, procedure parameters, and metadata tables into three separate groups
@@ -49,6 +51,8 @@ class HDFRecorder(Recorder):
         if self.opened_results is not None:
             self.opened_results.close()
             self.opened_results = None
+            fp = self.results_path.value()
+            logger.info('Closing file %s' % fp)
 
     def update_results(self):
         """ Append to the HDF groups with the information from the new dataframes.
@@ -56,7 +60,8 @@ class HDFRecorder(Recorder):
         self.opened_results.append(self._data_group_str, self.data_df)
         self.opened_results.append(self._pp_group_str, self.pp_df)
         self.opened_results.append(self._meta_group_str, self.meta_df)
-
+        # - close file after updating, bc python holds a lock on HDFFiles - # 
+        self.close_results()
 
 # class FITSRecorder(Recorder):
 #     """ This class implements writing to .fits output, generating a new fits file for each individual
