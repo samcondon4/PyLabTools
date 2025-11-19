@@ -192,6 +192,7 @@ class SequenceUI(pTypes.GroupParameter):
             top_level = -1
             sub_levels = []
             tabs = 0
+            new_tabs = 0 
             for line in f.readlines():
                 if not line.startswith("\t"):
                     top_level += 1
@@ -206,6 +207,7 @@ class SequenceUI(pTypes.GroupParameter):
                     elif new_tabs < tabs:
                         for i in range(tabs - new_tabs):
                             sub_levels.pop()
+                        sub_levels[new_tabs-1] += 1 
                     else:
                         sub_levels[new_tabs-1] += 1
                     level = [str(val) for val in [top_level] + sub_levels]
