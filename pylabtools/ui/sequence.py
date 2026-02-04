@@ -2,11 +2,13 @@
 """
 import os
 
+import itertools
 import numpy as np
 from PyQt5 import QtCore
+from copy import deepcopy
 from collections.abc import Iterable
-import pyqtgraph.parametertree.parameterTypes as pTypes
 from pyqtgraph.parametertree import Parameter
+import pyqtgraph.parametertree.parameterTypes as pTypes
 
 
 class DuplicateParameterError(Exception):
@@ -131,46 +133,68 @@ class SequenceUI(pTypes.GroupParameter):
         pTypes.GroupParameter.__init__(self, **opts)
 
         # connect buttons to methods #
-        self.start_sequence.sigStateChanged.connect(self.build_sequence)
+        self.start_sequence.sigStateChanged.connect(self.build_procedure_sequence)
         self.pause_sequence.sigActivated.connect(self.pause_proc_sequence.emit)
         self.stop_sequence.sigActivated.connect(self.abort_proc_sequence.emit)
         self.save_sequence.sigActivated.connect(self.write_sequence)
         self.load_sequence.sigActivated.connect(self.input_sequence)
 
-    def build_sequence(self):
-        """ Build a procedure sequence from the sequencer parameters.
+    def build_procedure_sequence_a(self, tree, proc_dict, sequence_list):
+        """ First step in constructing a procedure sequence. Iterate through the tree in a depth-first search and 
+        construct a list of procedures with lists compressed.
+
+        :param tree: Ordered dict with the procedure sequence information.
+        :param proc_dict: Procedure dictionary.
+        :param sequence_list: The list of procedure dictionaries that this function constructs. 
         """
-        sequence = []
+        if len(tree) == 0:
+            sequence_list.extend([deepcopy(proc_dict)])
+        else:
+            for key, val in tree.items():
+                key = key.split(':')[1].strip()
+                proc_dict[key] = self.typecast(val[0])
+                self.build_procedure_sequence_a(val[1], proc_dict, sequence_list)
+
+    def build_procedure_sequence_b(self, sequence_list):
+        """ Second step of constructing a procedure sequence. Take the sequence list and expand 
+        list values into multiple individual dictionaries. Send the new sequence signal.
+        """
+        new_sequence_list = []
+        for dct in sequence_list:
+            # Separate keys with list values from keys with scalar values
+            list_keys = [k for k, v in dct.items() if isinstance(v, list)]
+            scalar_data = {k: v for k, v in dct.items() if k not in list_keys}
+            
+            # Generate Cartesian product of list values
+            # The order of keys in list_keys determines the nesting order (first key is outer loop)
+            list_values = [dct[k] for k in list_keys]
+            
+            flattened = []
+            for combination in itertools.product(*list_values):
+                # Create new dict with scalar data
+                item = scalar_data.copy()
+                # Update with the current combination of list values
+                item.update(zip(list_keys, combination))
+                flattened.append(item)
+            new_sequence_list.extend(flattened)
+
+        return new_sequence_list
+
+    def build_procedure_sequence(self):
+        """ Build a complete procedure sequence in response to the start_sequence button.
+        Emit the procedure sequence into the new_sequence signal.
+        """
+        sequence_list = []
         # get the sequence group children values and remove the buttons #
         seq_dict = self.sequence_group.getValues()
         seq_dict.pop("Level")
         seq_dict.pop("Remove")
 
-        # build sequence parameters #
-        for node in seq_dict.items():
-            procs = [{}]
-            procs = self.build_node_sequence(node, sequence, procs)
-            sequence.extend(procs)
+        # - build the procedure sequence - #
+        self.build_procedure_sequence_a(seq_dict, {}, sequence_list)
+        sequence_list = self.build_procedure_sequence_b(sequence_list)
 
-        # strip levels from each procedure dictionary key #
-        for i in range(len(sequence)):
-            proc_dict = sequence[i]
-            new_dict = {key.split(SequenceGroup.level_identifier)[-1]: val for key, val in proc_dict.items()}
-            sequence[i] = new_dict
-
-        self.new_sequence.emit(seq_dict, sequence)
-
-    def build_node_sequence(self, node, sequence, procs):
-        """ Build procedure sequence for a single parameter tree node.
-        """
-        top_key = node[0]
-        top_val = self.typecast(node[1][0])
-        procs = self.update_procs_list(procs, top_key, top_val)
-        children = node[1][1].items()
-        for c in children:
-            procs = self.build_node_sequence(c, sequence, procs)
-
-        return procs
+        self.new_sequence.emit(seq_dict, sequence_list)
 
     def write_sequence(self):
         """ Save the current sequence out to a .txt file
@@ -192,6 +216,7 @@ class SequenceUI(pTypes.GroupParameter):
             top_level = -1
             sub_levels = []
             tabs = 0
+            new_tabs = 0 
             for line in f.readlines():
                 if not line.startswith("\t"):
                     top_level += 1
@@ -206,6 +231,7 @@ class SequenceUI(pTypes.GroupParameter):
                     elif new_tabs < tabs:
                         for i in range(tabs - new_tabs):
                             sub_levels.pop()
+                        sub_levels[new_tabs-1] += 1 
                     else:
                         sub_levels[new_tabs-1] += 1
                     level = [str(val) for val in [top_level] + sub_levels]
@@ -255,8 +281,6 @@ class SequenceUI(pTypes.GroupParameter):
                 typecast = val_list
             elif "np" in val:
                 np_array = eval(val)
-                if type(np_array) is not np.ndarray:
-                    raise TypeError("Only numpy arrays are allowed for numpy commands.")
                 typecast = np_array
 
         return typecast
