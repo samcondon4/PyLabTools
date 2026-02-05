@@ -139,7 +139,10 @@ class SequenceUI(pTypes.GroupParameter):
         self.save_sequence.sigActivated.connect(self.write_sequence)
         self.load_sequence.sigActivated.connect(self.input_sequence)
 
-    def build_procedure_sequence_a(self, tree, proc_dict, sequence_list):
+        # - level accounting during sequence building - #
+        self.maxlevel = 0
+
+    def build_procedure_sequence_a(self, tree, proc_dict, sequence_list, level=0):
         """ First step in constructing a procedure sequence. Iterate through the tree in a depth-first search and 
         construct a list of procedures with lists compressed.
 
@@ -147,13 +150,17 @@ class SequenceUI(pTypes.GroupParameter):
         :param proc_dict: Procedure dictionary.
         :param sequence_list: The list of procedure dictionaries that this function constructs. 
         """
+        if level > self.maxlevel:
+            self.maxlevel = level
         if len(tree) == 0:
-            sequence_list.extend([deepcopy(proc_dict)])
+            return
         else:
             for key, val in tree.items():
                 key = key.split(':')[1].strip()
                 proc_dict[key] = self.typecast(val[0])
-                self.build_procedure_sequence_a(val[1], proc_dict, sequence_list)
+                self.build_procedure_sequence_a(val[1], proc_dict, sequence_list, level=level+1)
+            if level == self.maxlevel-1:
+                sequence_list.extend([deepcopy(proc_dict)])
 
     def build_procedure_sequence_b(self, sequence_list):
         """ Second step of constructing a procedure sequence. Take the sequence list and expand 
@@ -184,6 +191,7 @@ class SequenceUI(pTypes.GroupParameter):
         """ Build a complete procedure sequence in response to the start_sequence button.
         Emit the procedure sequence into the new_sequence signal.
         """
+        self.maxlevel = 0 
         sequence_list = []
         # get the sequence group children values and remove the buttons #
         seq_dict = self.sequence_group.getValues()
