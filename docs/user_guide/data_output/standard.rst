@@ -30,7 +30,7 @@ Example
 | *note*: data values generated here are clearly physically unrealistic. Values in tables are simply to provide a demonstration of the
   manner in which experimental data is organized with PyLabTools.
 
-| Let's consider an example using the fake experiment generated in the :ref:`Step-by-Step Experiment Configuration <tutorials/stepbystep_config/index:Step-by-Step Experiment Configuration>`
+| Let's consider an example using the fake experiment generated in the :ref:`Step-by-Step Experiment Configuration <PLT_stepbystep_exp_config>`
   tutorial.
 
 | In this experiment, the temperature of a cryostat baseplate is monitored in response to some voltage applied to a heater. Additionally, the thermal emission of
@@ -151,12 +151,11 @@ Recorders and Output-File Formats
 
 **Merging Recorders**
 
-- :ref:`Comma-Separated-Values (CSV) Recorder <api/recorders/plaintext/csv:Comma-Separated Values (CSV) Recorder>`
-- :ref:`Structured-Query-Language (SQL) Database Recorder <api/recorders/database/sql:Structured-Query-Language (SQL) Database Recorder>`
+- :ref:`Comma-Separated-Values (CSV) Recorder <PLT_csv_recorder>`
+- :ref:`Structured-Query-Language (SQL) Database Recorder <PLT_sql_recorder>`
 
 **Non-Merging Recorders**
 
-- :ref:`Hierarchical-Data-Format 5 (HDF5) Recorder <api/recorders/binary/hdf:Hierarchical-Data-Format 5 (HDF5) Recorder>`
-
+- :ref:`Hierarchical-Data-Format 5 (HDF5) Recorder <PLT_hdf_recorder>`
 
 

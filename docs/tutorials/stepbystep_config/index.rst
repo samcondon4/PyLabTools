@@ -1,3 +1,5 @@
+.. _PLT_stepbystep_exp_config:
+
 Step-by-Step Experiment Configuration
 ######################################
 

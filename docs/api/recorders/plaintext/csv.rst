@@ -1,3 +1,5 @@
+.. _PLT_csv_recorder:
+
 Comma-Separated Values (CSV) Recorder
 ######################################
 

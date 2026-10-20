@@ -1,3 +1,5 @@
+.. _PLT_sql_recorder:
+
 Structured-Query-Language (SQL) Database Recorder
 ##################################################
 

@@ -18,8 +18,8 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = 'PyLabTools'
-copyright = '2022, Sam Condon, Marco Viero'
-author = 'Sam Condon, Marco Viero'
+copyright = '2022, Sam Condon'
+author = 'Sam Condon'
 
 # The full version, including alpha/beta/rc tags
 release = '0.6'
