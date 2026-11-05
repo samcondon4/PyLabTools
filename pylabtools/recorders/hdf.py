@@ -10,6 +10,11 @@ Tables are pandas ``HDFStore`` tables (PyTables), so they can be appended to and
 ``RecordGroup``/``RecordGroupInd``. A record name must keep the same columns and column types
 across emits and runs; a mismatch raises :class:`~pylabtools.recorders.base.SchemaError` instead of
 corrupting the file.
+
+Datetime columns (such as the ``meta`` timestamp) are written with nanosecond resolution, which
+every pandas version reads. pandas 3 would otherwise store microseconds, and pandas 2 cannot read
+or append to such tables. When appending to an existing file, datetimes are converted to the
+resolution already stored, so files written by either pandas version can be extended by the other.
 """
 import re
 from pathlib import Path
@@ -80,7 +85,8 @@ class HDFRecorder(Recorder):
         store = self._open()
         try:
             # - check all three tables before appending any, so a mismatch writes nothing - #
-            conformed = [(f"{record_name}/{kind}", self._conform(store, f"{record_name}/{kind}", df))
+            conformed = [(f"{record_name}/{kind}",
+                          self._conform(store, f"{record_name}/{kind}", _datetimes_as_ns(df)))
                          for kind, df in tables.items()]
             for key, df in conformed:
                 if len(df.index) == 0:
@@ -138,6 +144,10 @@ class HDFRecorder(Recorder):
         casts = {}
         for col in df.columns:
             have, want = _kind(df[col].dtype), _kind(stored[col])
+            if have == want == "datetime":
+                if df[col].dtype != stored[col]:
+                    casts[col] = stored[col]  # - e.g. us -> ns resolution, from another pandas version - #
+                continue
             if have == want:
                 continue
             if want == "float" and have in ("int", "bool"):
@@ -146,6 +156,19 @@ class HDFRecorder(Recorder):
             raise SchemaError(f"{self.path.name}:{key} column {col!r} is stored as {stored[col]} but the new "
                               f"record has {df[col].dtype}. Emit a consistent type (e.g. float(x)).")
         return df.astype(casts) if casts else df
+
+
+def _datetimes_as_ns(df):
+    """ Store datetimes with nanosecond resolution, readable by pandas 2 and 3. """
+    casts = {}
+    for col in df.columns:
+        dtype = df[col].dtype
+        if ptypes.is_datetime64_any_dtype(dtype):
+            tz = getattr(dtype, "tz", None)
+            target = f"datetime64[ns, {tz}]" if tz is not None else "datetime64[ns]"
+            if str(dtype) != target:
+                casts[col] = target
+    return df.astype(casts) if casts else df
 
 
 def _kind(dtype):

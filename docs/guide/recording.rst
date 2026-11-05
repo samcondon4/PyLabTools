@@ -33,6 +33,16 @@ Options:
 Throughput depends on the number of emits, not their size: a 1601-point trace costs about the
 same as a single value. Pointing an existing file continues its RecordGroup numbering.
 
+pandas versions
+---------------
+
+Datetime columns (including the ``meta`` timestamp) are always written with nanosecond resolution,
+and appends convert datetimes to the resolution already in the file, so a file can be extended
+from environments with different pandas versions. Note that **pandas 2 cannot read HDF5 tables
+written by pandas 3** (a pandas limitation, independent of PyLabTools), while pandas 3 reads files
+from either. Use the same pandas major version on the acquisition and analysis computers, or
+pandas 3 for reading.
+
 CSV
 ===
 

@@ -262,3 +262,39 @@ def test_negative_groups_count_from_the_latest_run(tmp_path):
     assert plab.read_csv(csv_rec.directory, "counts", groups=-2)["proc_gain"].tolist() == [2.0]
     with pytest.raises(IndexError, match="out of range"):
         plab.read_hdf(hdf.path, groups=-4)
+
+
+def test_hdf_stores_datetimes_with_nanosecond_resolution(tmp_path):
+    """ pandas 3 would store microseconds, which pandas 2 cannot append to; always write ns. """
+    hdf = HDFRecorder(tmp_path / "ns.h5")
+    when = pd.Timestamp("2026-11-05 12:00:00.123456", tz="UTC").to_pydatetime()
+    proc = Emitter(items=[{"x": 1.0}], meta={"started": when}).connect("r", hdf)
+    record_with(hdf, proc)
+    with pd.HDFStore(hdf.path, mode="r") as store:
+        meta = store.select("r/meta")
+    assert str(meta["timestamp"].dtype) == "datetime64[ns, UTC]"
+    assert str(meta["started"].dtype) == "datetime64[ns, UTC]"
+
+
+@pytest.mark.parametrize("unit", ["us", "ms", "s"])
+def test_hdf_appends_to_files_with_other_datetime_resolution(tmp_path, unit):
+    """ Regression: a file written with another pandas version (different datetime resolution)
+    failed with "Cannot serialize the column [timestamp] ..." on append. """
+    path = tmp_path / "other.h5"
+    hdf = HDFRecorder(path)
+    proc = Emitter(items=[{"x": 1.0}]).connect("r", hdf)
+    record_with(hdf, proc)
+
+    # - rewrite the meta table as another pandas version would have stored it - #
+    with pd.HDFStore(path, mode="a") as store:
+        meta = store.select("r/meta")
+        meta["timestamp"] = meta["timestamp"].astype(f"datetime64[{unit}, UTC]")
+        store.remove("r/meta")
+        store.append("r/meta", meta, format="table", data_columns=["RecordGroup", "RecordGroupInd"], index=False)
+
+    hdf2 = HDFRecorder(path)
+    proc.disconnect()
+    proc.connect("r", hdf2)
+    assert record_with(hdf2, proc).status is Status.FINISHED
+    df = plab.read_hdf(path)
+    assert len(df) == 2 and df["meta_timestamp"].notna().all()
