@@ -61,6 +61,36 @@ Rules of thumb
 - **Batch fast data.** Each emit costs a few milliseconds in a recorder. For kHz acquisition, emit
   arrays of many samples rather than one emit per sample.
 
+Metadata
+========
+
+PyMeasure ``Metadata`` attributes are read from the instrument and stored in the ``meta`` table
+(as ``meta_<attribute name>``). They are read before and after ``startup()`` of every run or
+sequence step, so **configure instruments in** ``startup()``: records from ``execute()`` then carry
+the values read after it.
+
+``fget`` is an attribute path from the procedure, any depth of plain attribute names
+(``"vna.ch_1.pt_1.power_level"``), or the name of a method; the last element may be a method,
+which is called without arguments. For anything else (indexing, arguments), point ``fget`` at a
+small method of the procedure.
+
+Plain PyMeasure ``Metadata`` is added to **every** record the procedure emits, including records
+from background tasks. Use :class:`pylabtools.Metadata` with ``records=`` to store it only with
+the records it belongs to:
+
+.. code-block:: python
+
+    class TempPowerSweep(plab.Procedure):
+        vna_power = plab.Metadata("VNA power", units="dBm", fget="vna.power", records="s21")
+        vna_ifbw = plab.Metadata("IF bandwidth", units="Hz", fget="vna.if_bandwidth",
+                                 records=["s21", "s21_summary"])
+
+Here the ``fridge`` records of a polling task get neither column. Every record named in
+``records`` must be connected when the run starts, so a typo raises immediately.
+
+For a value read with every emit rather than once per step, pass it in ``meta`` instead:
+``self.emit("s21", data, meta={"vna_power": self.vna.power})``.
+
 Waiting
 =======
 

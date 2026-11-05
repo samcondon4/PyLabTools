@@ -101,6 +101,7 @@ What emit() accepts
 - a single scalar.
 
 ``meta`` is a dict of extra values for that emit. Values of PyMeasure ``Metadata`` attributes on
-the procedure are added automatically. They are evaluated before ``startup()`` and again after it,
-so every record of a step (including those emitted during ``startup()`` or by background tasks)
-has the same metadata columns.
+the procedure are added automatically, to every record, or only to the records named with
+:class:`pylabtools.Metadata` ``records=``. They are evaluated before ``startup()`` and again after
+it, so every record of a step (including those emitted during ``startup()`` or by background
+tasks) has the same metadata columns.

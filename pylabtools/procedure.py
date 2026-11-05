@@ -9,7 +9,8 @@ declared as class attributes with PyMeasure parameter types, and the measurement
 - :meth:`Procedure.should_stop`, :meth:`Procedure.is_last` and :meth:`Procedure.sleep`, backed by
   the active :class:`~pylabtools.runner.Run`;
 - :func:`every`, which marks a method as a background task that runs at a fixed interval for the
-  whole run.
+  whole run;
+- :class:`Metadata`, upstream PyMeasure metadata that can be limited to specific records.
 
 Instruments and any other resources are ordinary constructor arguments::
 
@@ -31,11 +32,39 @@ import numbers
 import time
 
 from pymeasure.experiment import Procedure as _PyMeasureProcedure
+from pymeasure.experiment.parameters import Metadata as _PyMeasureMetadata
 from pymeasure.experiment.parameters import Parameter
 
 from .consumers import Consumer
 
-__all__ = ["Procedure", "every"]
+__all__ = ["Metadata", "Procedure", "every"]
+
+
+class Metadata(_PyMeasureMetadata):
+    """ PyMeasure :class:`~pymeasure.experiment.parameters.Metadata`, optionally limited to records.
+
+    Metadata values are read from ``fget`` before and after ``startup()`` of every run or sequence
+    step, and stored in the ``meta`` table as ``meta_<attribute name>``. Plain PyMeasure ``Metadata``
+    is added to *every* record the procedure emits; with ``records``, only to the named ones::
+
+        vna_power = plab.Metadata("VNA power", units="dBm", fget="vna.power", records="s21")
+
+    :param name: Display name.
+    :param fget: Attribute path from the procedure (e.g. ``"vna.power"``), method name, or callable.
+    :param records: Record name, or list of record names, that receive this metadata. None
+        (default) means every record. Each name must be connected when the run starts.
+    :param kwargs: Further PyMeasure ``Metadata`` arguments (``units``, ``default``, ``fmt``).
+    """
+
+    def __init__(self, name, fget=None, records=None, **kwargs):
+        if records is not None:
+            records = (records,) if isinstance(records, str) else tuple(records)
+            if not records or not all(isinstance(r, str) and r for r in records):
+                raise ValueError(f"Metadata {name!r}: records must be a record name or a non-empty "
+                                 f"list of record names, got {records!r}.")
+            records = frozenset(records)
+        self.records = records
+        super().__init__(name, fget=fget, **kwargs)
 
 _TASK_ATTR = "_pylabtools_every"
 
@@ -207,6 +236,11 @@ class Procedure(_PyMeasureProcedure):
         return not run._stop.wait(max(0.0, seconds))
 
     # - helpers -------------------------------------------------------------------------------- #
+    def _metadata_scopes(self):
+        """ ``{metadata attribute: frozenset of record names}`` for metadata limited with ``records``. """
+        return {item: metadata.records for item, metadata in self._metadata.items()
+                if getattr(metadata, "records", None) is not None}
+
     def _evaluate_metadata(self):
         """ Evaluate PyMeasure ``Metadata`` attributes and return ``{name: value}``.
 

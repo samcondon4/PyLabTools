@@ -87,6 +87,7 @@ class Run:
         _validate_steps(procedure, self.steps)
         self.group_by = _parameter_list(procedure, group_by, "group_by")
         self.tasks = _validate_tasks(procedure)
+        self._metadata_scopes = procedure._metadata_scopes()
 
         self.run_id = run_id if run_id is not None else uuid.uuid4().hex
         self.status = Status.QUEUED
@@ -120,6 +121,7 @@ class Run:
             raise RuntimeError("This run has already been started; create a new run instead.")
         if self.procedure._run is not None:
             raise RuntimeError(f"{type(self.procedure).__name__} is already running.")
+        _check_metadata_scopes(self.procedure, self._metadata_scopes)
         self.procedure._run = self
         self._consumers = self.procedure.consumers()
         self._thread = threading.Thread(target=self._target, name=f"pylabtools-run-{self.run_id[:8]}")
@@ -318,7 +320,9 @@ class Run:
         with self._emit_lock:
             index = self._indices.get(record_name, 0)
             self._indices[record_name] = index + 1
-            full_meta = dict(self._metadata)
+            scopes = self._metadata_scopes
+            full_meta = {key: value for key, value in self._metadata.items()
+                         if key not in scopes or record_name in scopes[key]}
             if meta is not None:
                 full_meta.update(meta)
             record = Record(record_name, data, proc_params=self._proc_params, meta=full_meta,
@@ -361,6 +365,16 @@ def _parameter_list(procedure, names, what):
         raise NameError(f"{what}: unknown parameter(s) {unknown} for {type(procedure).__name__}; "
                         f"known parameters are {sorted(procedure._parameters)}.")
     return names
+
+
+def _check_metadata_scopes(procedure, scopes):
+    """ Every record named in a Metadata ``records=`` must be connected, so typos are caught. """
+    connected = set(procedure.routes)
+    for item, records in scopes.items():
+        missing = sorted(records - connected)
+        if missing:
+            raise ValueError(f"Metadata {item!r} of {type(procedure).__name__} is limited to record(s) "
+                             f"{missing}, which are not connected. Connected records: {sorted(connected)}.")
 
 
 def _validate_tasks(procedure):

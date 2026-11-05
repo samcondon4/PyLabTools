@@ -13,6 +13,10 @@ Running procedures
 
 .. autofunction:: pylabtools.every
 
+.. autoclass:: pylabtools.Metadata
+    :members: records
+    :no-inherited-members:
+
 .. autofunction:: pylabtools.run
 .. autofunction:: pylabtools.start
 .. autofunction:: pylabtools.run_sequence

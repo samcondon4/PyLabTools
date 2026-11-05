@@ -29,6 +29,9 @@ class TempPowerSweep(plab.Procedure):
     settle_time = FloatParameter("Settle time", units="s", default=600, minimum=0)
     poll_interval = FloatParameter("Poll interval", units="s", default=5, minimum=0.01)
 
+    # - VNA readback, read once per step after startup() and stored only with the s21 traces - #
+    vna_power = plab.Metadata("VNA power readback", units="dBm", fget="vna.power", records="s21")
+
     def __init__(self, vna, tc, channels=(1, 2, 5, 6), **kwargs):
         super().__init__(**kwargs)
         self.vna, self.tc, self.channels = vna, tc, channels
@@ -46,11 +49,12 @@ class TempPowerSweep(plab.Procedure):
             self.tc.heater_1.setpoint = self.setpoint
             self._applied_setpoint = self.setpoint
             self.sleep(self.settle_time)                      # - returns early on stop - #
+        # - configure the VNA here, so the metadata read after startup() sees the new power - #
+        self.vna.power = self.power
+        self.vna.output_enabled = 1
         self.phase = "measuring"
 
     def execute(self):
-        self.vna.power = self.power
-        self.vna.output_enabled = 1
         f = self.vna.frequency_axis
         for i in range(self.n_traces):
             if self.should_stop():
@@ -152,7 +156,9 @@ def main(argv=None):
     for group in s21.index.get_level_values("RecordGroup").unique()[-3:]:
         traces, t = s21.loc[group], temps.loc[group]
         settled = t[t["meta_phase"] == "measuring"]
+        powers = sorted(float(p) for p in traces["meta_vna_power"].unique())
         print(f"RecordGroup {group}: setpoint {traces['proc_setpoint'].iloc[0] * 1e3:.0f} mK, "
+              f"VNA powers {powers} dBm, "
               f"{traces.index.get_level_values('RecordGroupInd').nunique()} traces, "
               f"{len(t)} fridge samples, MXC while measuring {settled['T6'].mean() * 1e3:.2f} mK")
     return run
