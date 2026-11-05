@@ -23,6 +23,7 @@ dependencies = [
 [project.optional-dependencies]
 gui = ["pyqtgraph", "PyQt5"]
 dev = ["pytest", "pytest-timeout"]
+docs = ["sphinx", "sphinx-book-theme"]
 
 [project.urls]
 Repository = "https://github.com/samcondon4/PyLabTools"

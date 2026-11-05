@@ -345,3 +345,24 @@ def test_metadata_is_added_to_meta_and_reevaluated_each_run(consumer):
     plab.run(proc)
     consumer.join_queue()
     assert [r.meta["reading"] for r in consumer.records] == [1, 2]
+
+
+def test_metadata_can_read_an_instrument_attribute(consumer):
+    from pymeasure.experiment import Metadata
+    from pymeasure.instruments.fakes import SwissArmyFake
+
+    class InstrumentMeta(plab.Procedure):
+        output = Metadata("Output voltage", fget="inst.output_voltage")
+
+        def __init__(self, inst, **kwargs):
+            super().__init__(**kwargs)
+            self.inst = inst
+
+        def execute(self):
+            self.emit("m", 1.0)
+
+    inst = SwissArmyFake(wait=0)
+    inst.output_voltage = 3.0
+    plab.run(InstrumentMeta(inst).connect("m", consumer))
+    consumer.join_queue()
+    assert consumer.records[0].meta["output"] == 3.0

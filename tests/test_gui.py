@@ -6,7 +6,7 @@ from procedures import Waiter
 import pylabtools as plab
 from pylabtools import LineViewer, Record, Viewer
 
-gui = pytest.importorskip("pylabtools.gui", reason="pylabtools[gui] not installed")
+gui = pytest.importorskip("pylabtools.gui", reason="pylabtools[gui] not installed", exc_type=ImportError)
 
 
 def feed(viewer, *records):
