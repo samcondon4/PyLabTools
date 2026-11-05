@@ -1,17 +1,20 @@
 # PyLabTools
 
-PyLabTools provides a general purpose laboratory data acquisition and instrument control system with driver level 
-software for control of testbed instrumentation, graphical interfaces, real-time data visualization, processing, data archival tools 
-for a variety of output file formats, and mechanisms to run manual and automated measurements. Each component is highly configurable with 
-minimal manual coding required by a user.
+PyLabTools is a Python framework for laboratory measurement automation: procedures emit
+records that are routed to recorders (data archival) and viewers (live display), built on top
+of [PyMeasure](https://pymeasure.readthedocs.io) instrument drivers.
 
-PyLabTools is inspired heavily from the existing PyMeasure project. Instrument drivers from PyMeasure are used 
-directly, and the `Procedure` class is used to handle automated measurement scripts. PyLabTools adds a configuration
-file based system which streamlines the process of building up a measurement interface, adds support for several
-output data formats, decouples measurement data output from live plotting, and adds additional features which are
-detailed in the official documentation.
+> **Status:** PyLabTools 1.0 is a ground-up rewrite under development on the `dev/1.0` branch.
+> The core is usable headless from scripts and notebooks; the Qt GUI is an optional layer.
 
+## Legacy 0.9
 
-PyLabTools was initially developed under the name *SPHERExLabTools* for use in the optical calibration of NASA's
-medium class explorer telescope, SPHEREx. For a description of this early version of the package, see the 
-[SPHERExLabTools Conference Proceedings](https://www.spiedigitallibrary.org/conference-proceedings-of-spie/12180/121804S/SPHERExLabTools-SLT--a-Python-data-acquisition-system-for-SPHEREx/10.1117/12.2630662.full?SSO=1)
+The previous, configuration-file based release is preserved at the `v0.9.1` tag:
+
+```bash
+pip install "git+https://github.com/samcondon4/PyLabTools.git@v0.9.1"
+```
+
+PyLabTools was initially developed under the name *SPHERExLabTools* for the optical calibration of
+NASA's SPHEREx telescope; see the
+[SPHERExLabTools conference proceedings](https://arxiv.org/abs/2208.05099).
