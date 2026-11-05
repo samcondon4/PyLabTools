@@ -71,7 +71,7 @@ wait out the settling time:
 .. code-block:: python
 
     def startup(self):
-        self.tc.heater_sample.setpoint = self.setpoint
+        self.tc.heater_1.setpoint = self.setpoint
         if not self.sleep(self.settle_time):
             return          # - stopped while settling; execute() should check should_stop() - #
 

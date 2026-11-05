@@ -5,7 +5,7 @@ at several output powers. The fridge temperatures are polled at a fixed cadence 
 experiment by a background task. ``group_by="setpoint"`` makes each setpoint one RecordGroup, so the
 traces and the fridge samples taken at a setpoint share a RecordGroup in the HDF5 file.
 
-The fake instruments below mimic ``BlueforsTC`` (``tc.heater_sample.setpoint``,
+The fake instruments below mimic ``BlueforsTC`` (``tc.heater_1.setpoint``,
 ``tc.temperature(ch)``) and a VNA driver (``power``, ``output_enabled``, ``frequency_axis``,
 ``trace_data``); swap in the real drivers for the experiment.
 
@@ -43,7 +43,7 @@ class TempPowerSweep(plab.Procedure):
     def startup(self):
         if self.setpoint != self._applied_setpoint:          # - settle only when T changes - #
             self.phase = "settling"
-            self.tc.heater_sample.setpoint = self.setpoint
+            self.tc.heater_1.setpoint = self.setpoint
             self._applied_setpoint = self.setpoint
             self.sleep(self.settle_time)                      # - returns early on stop - #
         self.phase = "measuring"
@@ -86,7 +86,7 @@ class FakeFridge:
     def __init__(self, tau=60.0):
         self.tau, self.lock = tau, threading.Lock()
         self.target, self.start_T, self.t0 = 0.010, 0.010, time.monotonic()
-        self.heater_sample = FakeHeater(self)
+        self.heater_1 = FakeHeater(self)
 
     def mxc(self):
         dt = time.monotonic() - self.t0
