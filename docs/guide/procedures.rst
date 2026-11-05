@@ -61,6 +61,49 @@ Rules of thumb
 - **Batch fast data.** Each emit costs a few milliseconds in a recorder. For kHz acquisition, emit
   arrays of many samples rather than one emit per sample.
 
+Waiting
+=======
+
+Use ``self.sleep(seconds)`` rather than ``time.sleep()`` for long waits such as thermal settling.
+It returns early (with ``False``) as soon as a stop is requested, so stopping a run does not have to
+wait out the settling time:
+
+.. code-block:: python
+
+    def startup(self):
+        self.tc.heater_sample.setpoint = self.setpoint
+        if not self.sleep(self.settle_time):
+            return          # - stopped while settling; execute() should check should_stop() - #
+
+Background tasks
+================
+
+Decorate a method with :func:`pylabtools.every` to run it at a fixed cadence on its own thread,
+for example to log fridge temperatures continuously while the procedure takes VNA traces:
+
+.. code-block:: python
+
+    class TempPowerSweep(plab.Procedure):
+        poll_interval = FloatParameter("Poll interval", units="s", default=5)
+
+        @plab.every("poll_interval")         # - seconds, or the name of a parameter - #
+        def poll_fridge(self):
+            self.emit("fridge", {f"T{ch}": self.tc.temperature(ch) for ch in (1, 2, 5, 6)},
+                      meta={"phase": self.phase})
+
+- The task runs for the **whole run**: it starts once the first step's parameters are set (just
+  before the first ``startup()``) and stops after the last ``shutdown()``. In a sequence it keeps
+  running across steps, without gaps.
+- Its records carry the parameters, and belong to the record group, of the step that is active
+  when they are emitted.
+- The cadence is fixed (no drift). If a call takes longer than the interval, missed ticks are
+  skipped rather than run back to back. A parameter-name interval is re-read before every call.
+- If the task raises, the run is stopped (``should_stop()`` becomes True and ``sleep()`` returns)
+  and ends ``FAILED`` with the task's exception.
+- Tasks run concurrently with ``startup()``/``execute()``. Only use instruments in a task that can
+  be used from two threads at once (the Bluefors HTTP driver can; most VISA instruments should be
+  used from one thread only), and keep each call short.
+
 Several records
 ===============
 

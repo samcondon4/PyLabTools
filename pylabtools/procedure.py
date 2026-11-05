@@ -6,8 +6,10 @@ declared as class attributes with PyMeasure parameter types, and the measurement
 
 - :meth:`Procedure.connect`, which routes a named record to recorders and viewers;
 - :meth:`Procedure.emit`, which sends a :class:`~pylabtools.record.Record` to those consumers;
-- :meth:`Procedure.should_stop` and :meth:`Procedure.is_last`, backed by the active
-  :class:`~pylabtools.runner.Run`.
+- :meth:`Procedure.should_stop`, :meth:`Procedure.is_last` and :meth:`Procedure.sleep`, backed by
+  the active :class:`~pylabtools.runner.Run`;
+- :func:`every`, which marks a method as a background task that runs at a fixed interval for the
+  whole run.
 
 Instruments and any other resources are ordinary constructor arguments::
 
@@ -25,13 +27,55 @@ Instruments and any other resources are ordinary constructor arguments::
                 self.emit("voltage", {"i": i, "V": self.inst.voltage})
 """
 import inspect
+import numbers
+import time
 
 from pymeasure.experiment import Procedure as _PyMeasureProcedure
 from pymeasure.experiment.parameters import Parameter
 
 from .consumers import Consumer
 
-__all__ = ["Procedure"]
+__all__ = ["Procedure", "every"]
+
+_TASK_ATTR = "_pylabtools_every"
+
+
+def every(interval):
+    """ Mark a procedure method as a background task that runs every ``interval`` seconds.
+
+    The run calls the method on its own thread, at a fixed cadence, for the *whole* run: it starts
+    once the first step's parameters are set (just before the first ``startup()``) and stops after
+    the last ``shutdown()``, so a sequence is covered without gaps between steps. Records emitted by
+    a task carry the parameters of the step that is active at that moment. If a task raises, the
+    run is stopped and ends ``FAILED``. A tick that takes longer than the interval skips the missed
+    ticks rather than running them back to back.
+
+    Tasks should return promptly; they run concurrently with ``startup()``/``execute()``, so only
+    use instruments that tolerate access from two threads::
+
+        class Sweep(plab.Procedure):
+            poll_interval = FloatParameter("Poll interval", units="s", default=5)
+
+            @plab.every("poll_interval")
+            def poll_fridge(self):
+                self.emit("fridge", {"T6": self.tc.temperature(6)})
+
+    :param interval: Seconds between calls, or the attribute name of a parameter holding the
+        interval (read before every call, so it can change between sequence steps).
+    """
+    if callable(interval):
+        raise TypeError("every() needs an interval: use @plab.every(seconds) or @plab.every('parameter').")
+    if isinstance(interval, numbers.Real):
+        if isinstance(interval, bool) or interval <= 0:
+            raise ValueError(f"every() interval must be a positive number of seconds, got {interval!r}.")
+    elif not isinstance(interval, str):
+        raise TypeError(f"every() interval must be seconds or a parameter name, got {interval!r}.")
+
+    def decorate(method):
+        setattr(method, _TASK_ATTR, interval)
+        return method
+
+    return decorate
 
 
 class Procedure(_PyMeasureProcedure):
@@ -54,6 +98,12 @@ class Procedure(_PyMeasureProcedure):
     def parameter_names(cls):
         """ Attribute names of the procedure's parameters. """
         return [name for name, obj in inspect.getmembers(cls) if isinstance(obj, Parameter)]
+
+    @classmethod
+    def tasks(cls):
+        """ Background tasks declared with :func:`every`, as ``{method name: interval}``. """
+        return {name: getattr(obj, _TASK_ATTR) for name, obj in inspect.getmembers(cls)
+                if callable(obj) and hasattr(obj, _TASK_ATTR)}
 
     # - routing -------------------------------------------------------------------------------- #
     def connect(self, record_name, *consumers):
@@ -138,6 +188,23 @@ class Procedure(_PyMeasureProcedure):
         """ True if the current step is the last step of the active run or sequence. """
         run = self._run
         return run is None or run.step == len(run.steps) - 1
+
+    def sleep(self, seconds):
+        """ Wait ``seconds``, returning early if a stop is requested.
+
+        Use instead of ``time.sleep()`` for long waits such as thermal settling, so that a stop (or a
+        failing background task) takes effect immediately::
+
+            if not self.sleep(self.settle_time):
+                return  # - stopped while waiting - #
+
+        :return: True if the full time elapsed, False if the wait ended because of a stop.
+        """
+        run = self._run
+        if run is None:
+            time.sleep(seconds)
+            return True
+        return not run._stop.wait(max(0.0, seconds))
 
     # - helpers -------------------------------------------------------------------------------- #
     def _evaluate_metadata(self):

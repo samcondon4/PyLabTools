@@ -65,11 +65,11 @@ def test_record_indices_count_per_record_name():
     assert [r.index for r in b.records] == list(range(6))
 
 
-def test_run_end_is_notified_after_all_records(consumer):
+def test_group_end_is_notified_after_all_records(consumer):
     proc = Counter(samples=50, delay=0).connect("counts", consumer)
     run = plab.run(proc)
     consumer.join_queue()
-    assert consumer.run_ends == [(run.run_id, 50)]
+    assert consumer.group_ends == [(run.run_id, 50)]
 
 
 # - failures always run shutdown() on the worker thread ---------------------------------------- #
@@ -198,7 +198,7 @@ def test_sequence_shares_run_id_and_continues_index(consumer):
     assert [r.index for r in consumer.records] == list(range(6))
     assert [r.proc_params["gain"] for r in consumer.records] == [1.0, 1.0, 2.0, 2.0, 3.0, 3.0]
     assert proc.calls == ["startup", "execute", "shutdown"] * 3
-    assert consumer.run_ends == [(run.run_id, 6)]
+    assert consumer.group_ends == [(run.run_id, 6)]
 
 
 def test_sequence_values_carry_over_and_common_params(consumer):
@@ -344,7 +344,8 @@ def test_metadata_is_added_to_meta_and_reevaluated_each_run(consumer):
     plab.run(proc)
     plab.run(proc)
     consumer.join_queue()
-    assert [r.meta["reading"] for r in consumer.records] == [1, 2]
+    # - evaluated before and after startup() of every run; execute() emits see the second value - #
+    assert [r.meta["reading"] for r in consumer.records] == [2, 4]
 
 
 def test_metadata_can_read_an_instrument_attribute(consumer):

@@ -7,8 +7,11 @@ Running procedures
 ==================
 
 .. autoclass:: pylabtools.Procedure
-    :members: connect, disconnect, routes, consumers, emit, should_stop, is_last, parameter_names
+    :members: connect, disconnect, routes, consumers, emit, should_stop, is_last, sleep,
+        parameter_names, tasks
     :no-inherited-members:
+
+.. autofunction:: pylabtools.every
 
 .. autofunction:: pylabtools.run
 .. autofunction:: pylabtools.start

@@ -12,6 +12,9 @@ Ground-up rewrite. First milestone: the procedure -> emit -> record -> recorder/
 - :class:`~pylabtools.HDFRecorder` and :class:`~pylabtools.CSVRecorder` with the
   RecordGroup / RecordGroupInd / RecordRow indices; ``read_hdf`` and ``read_csv``.
 - :class:`~pylabtools.LineViewer` and the optional :mod:`pylabtools.gui`.
+- Background tasks with :func:`~pylabtools.every`, ``group_by`` record groups for sequences, and
+  :meth:`Procedure.sleep() <pylabtools.Procedure.sleep>`. Consumer hook ``on_run_end`` is now
+  ``on_group_end``. Metadata is also evaluated before ``startup()``.
 - Packaging, tests and CI.
 
 See :doc:`migrating` for changes from 0.9.

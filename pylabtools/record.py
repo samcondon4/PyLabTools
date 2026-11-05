@@ -28,8 +28,9 @@ class Record:
 
     The three PyLabTools output indices are derived from a Record as follows:
 
-    - ``RecordGroup``: assigned by a recorder from :attr:`run_id` (one run, or one whole sequence).
-    - ``RecordGroupInd``: :attr:`index`, the emit counter for this record name within the run.
+    - ``RecordGroup``: assigned by a recorder from :attr:`group` (by default the whole run or
+      sequence; see ``group_by`` in :func:`pylabtools.start_sequence`).
+    - ``RecordGroupInd``: :attr:`index`, the emit counter for this record name within the group.
     - ``RecordRow``: the row number within :attr:`data`.
 
     :param name: Name of the record, e.g. ``"temperature"``.
@@ -37,8 +38,9 @@ class Record:
     :param proc_params: Procedure parameter values at the time of the emit.
     :param meta: Additional metadata to store alongside the data.
     :param run_id: Identifier of the run (or sequence) that produced this record.
-    :param index: Emit counter for this record name within the run.
+    :param index: Emit counter for this record name within the group.
     :param timestamp: Time of the emit (timezone-aware, UTC by default).
+    :param group: Identifier of the record group; defaults to ``run_id``.
     """
 
     name: str
@@ -48,6 +50,7 @@ class Record:
     run_id: str = ""
     index: int = 0
     timestamp: datetime.datetime = field(default_factory=_utc_now)
+    group: str = ""
 
     def __post_init__(self):
         if not isinstance(self.name, str) or not self.name:
@@ -61,6 +64,8 @@ class Record:
         object.__setattr__(self, "proc_params", _frozen_mapping(self.proc_params, "proc_params"))
         object.__setattr__(self, "meta", _frozen_mapping(self.meta, "meta"))
         object.__setattr__(self, "index", int(self.index))
+        if not self.group:
+            object.__setattr__(self, "group", self.run_id)
 
     @property
     def n_rows(self):

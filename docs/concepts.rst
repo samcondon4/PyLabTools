@@ -31,8 +31,8 @@ A run moves through ``QUEUED -> RUNNING -> FINISHED | FAILED | ABORTED``
 ``FINISHED``
     ``execute()`` returned, and every recorder has stored every record of the run.
 ``FAILED``
-    ``startup()``, ``execute()`` or ``shutdown()`` raised, or a recorder failed. The exception is in
-    ``run.exception``; ``plab.run()`` and ``plab.wait()`` re-raise it.
+    ``startup()``, ``execute()``, ``shutdown()`` or a background task raised, or a recorder failed.
+    The exception is in ``run.exception``; ``plab.run()`` and ``plab.wait()`` re-raise it.
 ``ABORTED``
     :meth:`~pylabtools.Run.stop` was called (or Ctrl-C pressed during ``plab.run``/``plab.wait``).
 
@@ -53,11 +53,14 @@ Record indices
 Every row PyLabTools writes is identified by three integer indices:
 
 ``RecordGroup``
-    One per run. A whole **sequence** is one run, so all of its steps share a RecordGroup.
-    Numbering continues from the largest group already in the output file.
+    One per run by default; a whole **sequence** is one run, so all of its steps share a
+    RecordGroup. A sequence started with ``group_by`` gets one RecordGroup per value of the
+    grouping parameter(s), e.g. one per temperature setpoint (see :doc:`guide/sequences`). All
+    records emitted while a group is active share its RecordGroup. Numbering continues from the
+    largest group already in the output file.
 ``RecordGroupInd``
-    The emit counter of that record name within the run (0, 1, 2, ...). It keeps counting across
-    the steps of a sequence.
+    The emit counter of that record name within the group (0, 1, 2, ...). It keeps counting across
+    the steps of a group.
 ``RecordRow``
     The row within one emit. Emitting a 1601-point trace gives RecordRows 0-1600.
 
@@ -98,4 +101,6 @@ What emit() accepts
 - a single scalar.
 
 ``meta`` is a dict of extra values for that emit. Values of PyMeasure ``Metadata`` attributes on
-the procedure are added automatically.
+the procedure are added automatically. They are evaluated before ``startup()`` and again after it,
+so every record of a step (including those emitted during ``startup()`` or by background tasks)
+has the same metadata columns.

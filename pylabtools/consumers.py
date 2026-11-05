@@ -5,7 +5,7 @@ Recorders and viewers are consumers. A consumer must be running (``consumer.star
 record that is still queued before the thread exits, so no emitted data is dropped.
 
 All consumer hooks (:meth:`Consumer.on_start`, :meth:`Consumer.handle`,
-:meth:`Consumer.on_run_end`, :meth:`Consumer.on_stop`) run on the consumer's own thread, so a
+:meth:`Consumer.on_group_end`, :meth:`Consumer.on_stop`) run on the consumer's own thread, so a
 subclass can keep file handles and other state without locking.
 """
 import atexit
@@ -53,11 +53,11 @@ class ConsumerError(RuntimeError):
     """ Raised when records are sent to a consumer that is not running or has failed. """
 
 
-class _RunEnd:
-    """ Queue message sent when a run that routes records to the consumer has ended. """
+class _GroupEnd:
+    """ Queue message sent when a record group (a run, or a group of a sequence) has ended. """
 
-    def __init__(self, run_id):
-        self.run_id = run_id
+    def __init__(self, group):
+        self.group = group
 
 
 _STOP = object()
@@ -66,7 +66,7 @@ _STOP = object()
 class Consumer:
     """ Base class for objects that receive :class:`~pylabtools.record.Record` objects on a thread.
 
-    Subclasses implement :meth:`handle`, and optionally :meth:`on_start`, :meth:`on_run_end` and
+    Subclasses implement :meth:`handle`, and optionally :meth:`on_start`, :meth:`on_group_end` and
     :meth:`on_stop`.
 
     :param name: Name used in log messages. Defaults to the class name.
@@ -156,10 +156,10 @@ class Consumer:
                                 f"`with {self.name}:` before running the procedure.")
         self._queue.put(record)
 
-    def notify_run_end(self, run_id):
-        """ Queue a notification that the run ``run_id`` has ended. Called by the run. """
+    def notify_group_end(self, group):
+        """ Queue a notification that record group ``group`` has ended. Called by the run. """
         if self.running:
-            self._queue.put(_RunEnd(run_id))
+            self._queue.put(_GroupEnd(group))
 
     def join_queue(self, timeout=None):
         """ Block until every record queued so far has been processed.
@@ -200,12 +200,12 @@ class Consumer:
             if self._exception is not None:
                 continue  # - failed: discard remaining messages until stopped - #
             try:
-                if isinstance(item, _RunEnd):
-                    self.on_run_end(item.run_id)
+                if isinstance(item, _GroupEnd):
+                    self.on_group_end(item.group)
                 elif isinstance(item, Record):
                     self.handle(item)
             except Exception as exc:
-                self._fail(exc, "handle" if isinstance(item, Record) else "on_run_end")
+                self._fail(exc, "handle" if isinstance(item, Record) else "on_group_end")
 
         try:
             self.on_stop()
@@ -224,8 +224,11 @@ class Consumer:
         """ Process one record. Must be implemented by subclasses. """
         raise NotImplementedError("Consumer subclasses must implement handle().")
 
-    def on_run_end(self, run_id):
-        """ Called on the consumer thread after every record of run ``run_id`` has been handled. """
+    def on_group_end(self, group):
+        """ Called on the consumer thread after every record of group ``group`` has been handled.
+
+        A group is a whole run, or one group of a sequence started with ``group_by``.
+        """
 
     def on_stop(self):
         """ Called on the consumer thread after the queue has drained, when the consumer stops. """

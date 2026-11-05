@@ -11,9 +11,10 @@ columns:
 ``meta``
     ``RecordGroup, RecordGroupInd, timestamp`` followed by the metadata, one row per emit.
 
-``RecordGroup`` numbers runs (a whole sequence is one run) within one output file, continuing from
-the largest group already stored. ``RecordGroupInd`` is the emit counter of the record within the
-run, and ``RecordRow`` the row within one emit.
+``RecordGroup`` numbers record groups within one output file, continuing from the largest group
+already stored. By default a group is one run (a whole sequence is one run); a sequence started
+with ``group_by`` gets one group per value of the grouping parameters. ``RecordGroupInd`` is the
+emit counter of the record within the group, and ``RecordRow`` the row within one emit.
 """
 from dataclasses import dataclass
 
@@ -71,18 +72,18 @@ class Recorder(Consumer):
         self._next_group = self.last_record_group() + 1
 
     def handle(self, record):
-        group = self._record_group(record.run_id)
+        group = self._record_group(record.group)
         self.write(record.name, make_tables(record, group))
 
-    def on_run_end(self, run_id):
-        self._groups.pop(run_id, None)
+    def on_group_end(self, group):
+        self._groups.pop(group, None)
 
-    def _record_group(self, run_id):
-        if run_id not in self._groups:
-            self._groups[run_id] = self._next_group
-            logger.info("%s: run %s is RecordGroup %d", self.name, run_id[:8], self._next_group)
+    def _record_group(self, group):
+        if group not in self._groups:
+            self._groups[group] = self._next_group
+            logger.info("%s: group %s is RecordGroup %d", self.name, group[:10], self._next_group)
             self._next_group += 1
-        return self._groups[run_id]
+        return self._groups[group]
 
     # - for subclasses ------------------------------------------------------------------------- #
     def last_record_group(self):

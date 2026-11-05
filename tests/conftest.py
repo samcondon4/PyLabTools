@@ -15,7 +15,7 @@ class ListConsumer(Consumer):
     def __init__(self, delay=0.0, fail_on=None, critical=True, **kwargs):
         super().__init__(**kwargs)
         self.records = []
-        self.run_ends = []
+        self.group_ends = []
         self.events = []
         self.threads = set()
         self.delay = delay
@@ -34,8 +34,8 @@ class ListConsumer(Consumer):
             time.sleep(self.delay)
         self.records.append(record)
 
-    def on_run_end(self, run_id):
-        self.run_ends.append((run_id, len(self.records)))
+    def on_group_end(self, group):
+        self.group_ends.append((group, len(self.records)))
 
     def on_stop(self):
         self.events.append("stop")

@@ -10,6 +10,7 @@ EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
 @pytest.mark.parametrize("script, args", [
     ("quickstart.py", ["--samples", "20"]),
     ("sequence.py", ["--samples", "10", "--csv", "csv_out"]),
+    ("temp_power_sweep.py", ["--fast"]),
 ])
 def test_examples_run_headless(tmp_path, script, args):
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}

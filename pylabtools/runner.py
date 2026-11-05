@@ -1,9 +1,10 @@
 """ Running procedures: :class:`Run`, :func:`start`, :func:`run`, sequences and :func:`sweep`.
 
 A :class:`Run` executes a procedure on its own worker thread, once per *step*. A plain run has a
-single step; a sequence has one step per parameter set. Every record emitted during a run carries
-the run's ``run_id``, so the whole run (or sequence) becomes one ``RecordGroup`` in the output, and
-``RecordGroupInd`` keeps counting across steps.
+single step; a sequence has one step per parameter set. By default the whole run (or sequence) is
+one record *group*, which becomes one ``RecordGroup`` in the output, and ``RecordGroupInd`` keeps
+counting across steps. With ``group_by``, a new group starts whenever the named parameters change
+value, e.g. one group per temperature setpoint of a temperature/power sweep.
 
 The run follows the state machine ``QUEUED -> RUNNING -> FINISHED | FAILED | ABORTED``:
 
@@ -15,9 +16,13 @@ The run follows the state machine ``QUEUED -> RUNNING -> FINISHED | FAILED | ABO
 - :meth:`Run.stop` only *requests* a stop. Procedures should check ``self.should_stop()``.
 - All parameter values of every step are validated before the run starts, so a typo in step 40 of
   an overnight sequence is reported immediately rather than at 3 a.m.
+- Background tasks declared with :func:`~pylabtools.procedure.every` run for the whole run; a
+  failing task fails the run.
 """
 import enum
 import itertools
+import math
+import numbers
 import threading
 import time
 import uuid
@@ -65,21 +70,29 @@ class Run:
     :param steps: Sequence of ``{parameter name: value}`` dicts, applied in order. Values carry
         over from one step to the next unless overridden. Defaults to a single step with no changes.
     :param run_id: Identifier stored in every record; generated if not given.
-    :raises NameError: If a step names an unknown parameter.
+    :param group_by: Parameter name, or list of names. A new record group (``RecordGroup`` in the
+        output, with ``RecordGroupInd`` starting again at 0) begins whenever one of these parameters
+        changes value from one step to the next. Put the grouping parameter in the outer loop of
+        the sequence. By default the whole run is one group.
+    :raises NameError: If a step or ``group_by`` names an unknown parameter, or a task interval
+        names an unknown parameter.
     :raises ValueError: If a value is invalid or a parameter has no value.
     """
 
-    def __init__(self, procedure, steps=None, run_id=None):
+    def __init__(self, procedure, steps=None, run_id=None, group_by=None):
         self.procedure = procedure
         self.steps = [{}] if steps is None else [dict(step) for step in steps]
         if not self.steps:
             raise ValueError("A run needs at least one step.")
         _validate_steps(procedure, self.steps)
+        self.group_by = _parameter_list(procedure, group_by, "group_by")
+        self.tasks = _validate_tasks(procedure)
 
         self.run_id = run_id if run_id is not None else uuid.uuid4().hex
         self.status = Status.QUEUED
         self.exception = None
         self.step = None
+        self.group = None
         self.started_at = None
         self.finished_at = None
 
@@ -91,6 +104,11 @@ class Run:
         self._indices = {}
         self._proc_params = {}
         self._metadata = {}
+        self._group_id = None
+        self._group_key = None
+        self._task_stop = threading.Event()
+        self._task_threads = []
+        self._task_error = None
 
     # - control -------------------------------------------------------------------------------- #
     def start(self):
@@ -152,8 +170,9 @@ class Run:
 
     def __repr__(self):
         step = "" if self.step is None else f", step={self.step + 1}/{len(self.steps)}"
+        group = "" if not self.group_by or self.group is None else f", group={self.group}"
         return (f"<Run({type(self.procedure).__name__}, run_id={self.run_id[:8]}, "
-                f"status={self.status.value}{step})>")
+                f"status={self.status.value}{step}{group})>")
 
     # - worker thread -------------------------------------------------------------------------- #
     def _target(self):
@@ -173,8 +192,11 @@ class Run:
         except BaseException as exc:  # - noqa: anything raised by user code must end the run - #
             error = exc
         finally:
+            self._stop_tasks()
+            if error is None and self._task_error is not None:
+                error = self._task_error
             for consumer in self._consumers:
-                consumer.notify_run_end(self.run_id)
+                consumer.notify_group_end(self._group_id or self.run_id)
             # - FINISHED must mean "stored": wait until recorders have handled every record - #
             for consumer in self._consumers:
                 if consumer.critical:
@@ -204,10 +226,14 @@ class Run:
         proc = self.procedure
         proc.set_parameters(step)
         proc.check_parameters()
-        self._proc_params = proc.parameter_values()
-        self._metadata = {}
+        self._update_group(proc.parameter_values())
+        # - evaluate metadata before startup too, so records emitted during startup (or by a task)
+        #   have the same columns as later ones; it is re-evaluated after startup - #
+        self._metadata = proc._evaluate_metadata()
         if len(self.steps) > 1:
             logger.info("Run %s step %d/%d: %s", self.run_id[:8], self.step + 1, len(self.steps), step)
+        if self.tasks and not self._task_threads:
+            self._start_tasks()
         try:
             proc.startup()
             self._metadata = proc._evaluate_metadata()
@@ -224,6 +250,65 @@ class Run:
         except Exception as exc:
             logger.error("shutdown() of %s also failed: %r", type(self.procedure).__name__, exc, exc_info=exc)
 
+    def _update_group(self, proc_params):
+        """ Store the step's parameters, starting a new record group if this is the first step or a
+        group_by parameter changed. Done under the emit lock so a task never mixes the two. """
+        key = tuple(proc_params[name] for name in self.group_by)
+        with self._emit_lock:
+            self._proc_params = proc_params
+            if self._group_id is not None and key == self._group_key:
+                return
+            previous = self._group_id
+            self.group = 0 if self.group is None else self.group + 1
+            self._group_id = f"{self.run_id}-{self.group}" if self.group_by else self.run_id
+            self._group_key = key
+            self._indices = {}
+            if previous is not None:
+                for consumer in self._consumers:
+                    consumer.notify_group_end(previous)
+        if self.group_by:
+            values = ", ".join(f"{n}={v!r}" for n, v in zip(self.group_by, key))
+            logger.info("Run %s group %d: %s", self.run_id[:8], self.group, values)
+
+    # - background tasks ----------------------------------------------------------------------- #
+    def _start_tasks(self):
+        for name, interval in self.tasks.items():
+            thread = threading.Thread(target=self._task_loop, args=(name, interval),
+                                      name=f"pylabtools-task-{name}", daemon=True)
+            self._task_threads.append(thread)
+            thread.start()
+
+    def _stop_tasks(self):
+        self._task_stop.set()
+        for thread in self._task_threads:
+            thread.join()
+
+    def _task_loop(self, name, interval):
+        method = getattr(self.procedure, name)
+        next_tick = time.monotonic()
+        while not self._task_stop.is_set():
+            try:
+                method()
+                seconds = self._task_interval(name, interval)
+            except Exception as exc:
+                if self._task_error is None:
+                    self._task_error = exc
+                logger.error("Task %s() of %s failed: %r; stopping the run", name,
+                             type(self.procedure).__name__, exc, exc_info=exc)
+                self._stop.set()
+                return
+            next_tick += seconds
+            now = time.monotonic()
+            if next_tick < now:  # - overran: skip the missed ticks, stay on the original grid - #
+                next_tick += math.ceil((now - next_tick) / seconds) * seconds
+            self._task_stop.wait(next_tick - now)
+
+    def _task_interval(self, name, interval):
+        seconds = getattr(self.procedure, interval) if isinstance(interval, str) else interval
+        if not isinstance(seconds, numbers.Real) or isinstance(seconds, bool) or seconds <= 0:
+            raise ValueError(f"Interval of task {name}() must be a positive number of seconds, got {seconds!r}.")
+        return float(seconds)
+
     def _set_status(self, status):
         self.status = status
         self.procedure.status = _PYMEASURE_STATUS[status]
@@ -237,7 +322,7 @@ class Run:
             if meta is not None:
                 full_meta.update(meta)
             record = Record(record_name, data, proc_params=self._proc_params, meta=full_meta,
-                            run_id=self.run_id, index=index)
+                            run_id=self.run_id, index=index, group=self._group_id or self.run_id)
             for consumer in consumers:
                 if consumer.failed and not consumer.critical:
                     continue
@@ -266,6 +351,28 @@ def _validate_steps(procedure, steps):
                 raise ValueError(f"{where}invalid value {value!r} for parameter {name!r}: {exc}") from exc
 
 
+def _parameter_list(procedure, names, what):
+    """ Normalize a parameter name or list of names, checking each one exists. """
+    if names is None:
+        return ()
+    names = (names,) if isinstance(names, str) else tuple(names)
+    unknown = sorted(set(names) - set(procedure._parameters))
+    if unknown:
+        raise NameError(f"{what}: unknown parameter(s) {unknown} for {type(procedure).__name__}; "
+                        f"known parameters are {sorted(procedure._parameters)}.")
+    return names
+
+
+def _validate_tasks(procedure):
+    """ Return the procedure's tasks, checking that interval parameter names exist. """
+    tasks = type(procedure).tasks()
+    for name, interval in tasks.items():
+        if isinstance(interval, str) and interval not in procedure._parameters:
+            raise NameError(f"Task {name}() of {type(procedure).__name__} uses interval {interval!r}, "
+                            f"which is not a parameter; known parameters are {sorted(procedure._parameters)}.")
+    return tasks
+
+
 def start(procedure, **params):
     """ Start a single run of ``procedure`` in the background.
 
@@ -287,23 +394,26 @@ def run(procedure, **params):
     return _wait_for(start(procedure, **params))
 
 
-def start_sequence(procedure, steps, **common):
+def start_sequence(procedure, steps, group_by=None, **common):
     """ Start a sequence: run ``procedure`` once per parameter set in ``steps``.
 
-    The whole sequence shares one ``run_id``, so it is stored as a single ``RecordGroup``.
-    A failing step ends the sequence as ``FAILED``.
+    By default the whole sequence is stored as a single ``RecordGroup``. With ``group_by``, a new
+    ``RecordGroup`` starts whenever the named parameter(s) change, e.g.
+    ``start_sequence(proc, sweep(setpoint=[...], power=[...]), group_by="setpoint")`` gives one
+    group per setpoint. A failing step ends the sequence as ``FAILED``.
 
     :param procedure: The procedure to run.
     :param steps: Iterable of ``{parameter name: value}`` dicts, e.g. from :func:`sweep`.
+    :param group_by: Parameter name, or list of names, that defines record groups (see :class:`Run`).
     :param common: Parameter values applied to every step (overridden by the step's own values).
     :return: The started :class:`Run`.
     """
-    return Run(procedure, [{**common, **step} for step in steps]).start()
+    return Run(procedure, [{**common, **step} for step in steps], group_by=group_by).start()
 
 
-def run_sequence(procedure, steps, **common):
+def run_sequence(procedure, steps, group_by=None, **common):
     """ Blocking version of :func:`start_sequence`; see :func:`run` for Ctrl-C handling. """
-    return _wait_for(start_sequence(procedure, steps, **common))
+    return _wait_for(start_sequence(procedure, steps, group_by=group_by, **common))
 
 
 def sweep(**values):

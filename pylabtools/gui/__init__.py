@@ -120,7 +120,8 @@ class ViewerWindow(QtWidgets.QWidget):
         text = []
         for active in self.runs:
             step = "" if active.step is None or len(active.steps) == 1 else f" step {active.step + 1}/{len(active.steps)}"
-            text.append(f"{type(active.procedure).__name__} [{active.run_id[:8]}]: {active.status.value}{step}")
+            group = "" if not active.group_by or active.group is None else f", group {active.group}"
+            text.append(f"{type(active.procedure).__name__} [{active.run_id[:8]}]: {active.status.value}{step}{group}")
         self.status.setText("    ".join(text))
 
     def closeEvent(self, event):

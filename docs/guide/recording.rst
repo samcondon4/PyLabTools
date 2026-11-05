@@ -108,5 +108,5 @@ indices and builds the tables:
         def write(self, record_name, tables):
             ...  # tables.data, tables.proc_params, tables.meta are DataFrames
 
-``on_start()``, ``on_run_end(run_id)`` and ``on_stop()`` are available for opening and closing
+``on_start()``, ``on_group_end(group)`` and ``on_stop()`` are available for opening and closing
 resources; they all run on the recorder's own thread.
