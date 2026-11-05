@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pylabtools"
+dynamic = ["version"]
+description = "Laboratory measurement automation: procedures, records, recorders and viewers built on PyMeasure."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Sam Condon" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "numpy",
+    "pandas",
+    "pymeasure>=0.14",
+    "tables",
+]
+
+[project.optional-dependencies]
+gui = ["pyqtgraph", "PyQt5"]
+dev = ["pytest", "pytest-timeout"]
+
+[project.urls]
+Repository = "https://github.com/samcondon4/PyLabTools"
+
+[tool.setuptools.dynamic]
+version = { attr = "pylabtools.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["pylabtools*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+timeout = 60
+filterwarnings = ["error"]
