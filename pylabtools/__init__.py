@@ -8,16 +8,17 @@ imported when first accessed as ``pylabtools.gui``.
 __version__ = "1.0.0.dev0"
 
 from . import log
-from .consumers import Consumer, ConsumerError
+from .consumers import Consumer, ConsumerError, running
 from .procedure import Procedure
 from .record import Record
 from .recorders import CSVRecorder, HDFRecorder, Recorder, SchemaError, hdf_records, read_csv, read_hdf
-from .runner import Run, Status, run, run_sequence, start, start_sequence, sweep
+from .runner import Run, Status, run, run_sequence, start, start_sequence, sweep, wait
+from .viewers import LineViewer, Viewer
 
 __all__ = [
-    "CSVRecorder", "Consumer", "ConsumerError", "HDFRecorder", "Procedure", "Record", "Recorder",
-    "Run", "SchemaError", "Status", "hdf_records", "log", "read_csv", "read_hdf", "run",
-    "run_sequence", "start", "start_sequence", "sweep", "__version__",
+    "CSVRecorder", "Consumer", "ConsumerError", "HDFRecorder", "LineViewer", "Procedure", "Record",
+    "Recorder", "Run", "SchemaError", "Status", "Viewer", "hdf_records", "log", "read_csv",
+    "read_hdf", "run", "run_sequence", "running", "start", "start_sequence", "sweep", "wait", "__version__",
 ]
 
 

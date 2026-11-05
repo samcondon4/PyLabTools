@@ -14,6 +14,7 @@ corrupting the file.
 import re
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from pandas.api import types as ptypes
 
@@ -180,7 +181,8 @@ def read_hdf(path, record=None, join=True, groups=None):
         ``(RecordGroup, RecordGroupInd, RecordRow)``, with procedure parameters and metadata joined
         onto every data row as ``proc_<name>`` and ``meta_<name>`` columns. If False, return a dict
         with the separate ``data``, ``proc_params`` and ``meta`` tables.
-    :param groups: Optional ``RecordGroup`` number, or list of numbers, to read.
+    :param groups: Optional ``RecordGroup`` number, or list of numbers, to read. Negative numbers
+        count from the end: ``-1`` is the most recent run in the file.
     """
     names = hdf_records(path)
     if record is None:
@@ -190,13 +192,12 @@ def read_hdf(path, record=None, join=True, groups=None):
     elif record not in names:
         raise KeyError(f"{path} has no record {record!r}; records are {names}.")
 
-    where = None
-    if groups is not None:
-        groups = [groups] if isinstance(groups, int) else list(groups)
-        where = f"{RECORD_GROUP} = {groups}"
-
     with pd.HDFStore(path, mode="r") as store:
         keys = set(store.keys())
+        where = None
+        if groups is not None:
+            stored = sorted(set(store.select_column(f"/{record}/proc_params", RECORD_GROUP)))
+            where = f"{RECORD_GROUP} = {resolve_groups(groups, stored)}"
         tables = {}
         for kind in _TABLES:
             key = f"/{record}/{kind}"
@@ -210,6 +211,19 @@ def read_hdf(path, record=None, join=True, groups=None):
                 "proc_params": tables["proc_params"].set_index(EMIT_INDEX),
                 "meta": tables["meta"].set_index(EMIT_INDEX)}
     return join_tables(tables["data"], tables["proc_params"], tables["meta"])
+
+
+def resolve_groups(groups, stored):
+    """ Turn ``groups`` (an int or list, negatives counting from the end of ``stored``) into a list. """
+    groups = [groups] if isinstance(groups, (int, np.integer)) else list(groups)
+    resolved = []
+    for group in groups:
+        if group < 0:
+            if -group > len(stored):
+                raise IndexError(f"RecordGroup {group} is out of range; the file holds {len(stored)} groups.")
+            group = stored[group]
+        resolved.append(int(group))
+    return resolved
 
 
 def join_tables(data, proc_params, meta):

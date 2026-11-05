@@ -9,6 +9,7 @@ All consumer hooks (:meth:`Consumer.on_start`, :meth:`Consumer.handle`,
 subclass can keep file handles and other state without locking.
 """
 import atexit
+import contextlib
 import queue
 import threading
 import time
@@ -31,6 +32,21 @@ def _stop_running_consumers():
             consumer.stop(timeout=30)
         except Exception as exc:
             logger.error("Could not stop %s at exit: %r", consumer.name, exc)
+
+
+@contextlib.contextmanager
+def running(*consumers):
+    """ Context manager that starts several consumers and stops them all on exit::
+
+        with plab.running(hdf, csv, view):
+            plab.run(proc)
+
+    Consumers are stopped in reverse order, even if starting a later one or the body fails.
+    """
+    with contextlib.ExitStack() as stack:
+        for consumer in consumers:
+            stack.enter_context(consumer)
+        yield consumers
 
 
 class ConsumerError(RuntimeError):

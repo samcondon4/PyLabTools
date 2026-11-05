@@ -32,7 +32,7 @@ from .record import Record
 
 logger = get_logger(__name__)
 
-__all__ = ["Status", "Run", "start", "run", "start_sequence", "run_sequence", "sweep"]
+__all__ = ["Status", "Run", "start", "run", "start_sequence", "run_sequence", "sweep", "wait"]
 
 
 class Status(enum.Enum):
@@ -326,6 +326,17 @@ def _as_list(value):
     if isinstance(value, (str, bytes)) or not hasattr(value, "__iter__"):
         return [value]
     return list(value)
+
+
+def wait(active):
+    """ Wait for a started run to end, re-raising its exception if it failed.
+
+    Ctrl-C requests a stop and waits for ``shutdown()`` before re-raising KeyboardInterrupt.
+
+    :param active: A :class:`Run` from :func:`start` or :func:`start_sequence`.
+    :return: The run.
+    """
+    return _wait_for(active)
 
 
 def _wait_for(active):

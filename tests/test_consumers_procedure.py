@@ -150,3 +150,22 @@ def test_emit_outside_a_run_is_an_error():
     with pytest.raises(RuntimeError, match="only be called while the procedure is running"):
         proc.emit("counts", 1)
     assert proc.should_stop() is False
+
+
+def test_running_starts_and_stops_all_consumers():
+    a, b = ListConsumer(), ListConsumer()
+    with plab.running(a, b) as started:
+        assert started == (a, b) and a.running and b.running
+    assert not a.running and not b.running
+
+
+def test_running_stops_started_consumers_if_a_later_one_fails():
+    class BadStart(ListConsumer):
+        def on_start(self):
+            raise OSError("no")
+
+    a = ListConsumer()
+    with pytest.raises(ConsumerError):
+        with plab.running(a, BadStart()):
+            pass
+    assert not a.running and a.events == ["start", "stop"]

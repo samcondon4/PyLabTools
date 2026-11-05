@@ -249,3 +249,16 @@ def test_hdf_and_csv_store_the_same_data(tmp_path):
     from_hdf = plab.read_hdf(hdf.path, "r")
     from_csv = plab.read_csv(csv_rec.directory, "r")
     pd.testing.assert_frame_equal(from_hdf, from_csv, check_dtype=False)
+
+
+def test_negative_groups_count_from_the_latest_run(tmp_path):
+    hdf, csv_rec = HDFRecorder(tmp_path / "g.h5"), CSVRecorder(tmp_path / "csv")
+    proc = Counter(samples=1).connect("counts", hdf, csv_rec)
+    with hdf, csv_rec:
+        for gain in (1.0, 2.0, 3.0):
+            plab.run(proc, gain=gain)
+    assert plab.read_hdf(hdf.path, groups=-1)["proc_gain"].tolist() == [3.0]
+    assert plab.read_hdf(hdf.path, groups=[-3, -1])["proc_gain"].tolist() == [1.0, 3.0]
+    assert plab.read_csv(csv_rec.directory, "counts", groups=-2)["proc_gain"].tolist() == [2.0]
+    with pytest.raises(IndexError, match="out of range"):
+        plab.read_hdf(hdf.path, groups=-4)

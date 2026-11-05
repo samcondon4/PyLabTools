@@ -12,7 +12,7 @@ import pandas as pd
 
 from ..log import get_logger
 from .base import DATA_INDEX, RECORD_GROUP, Recorder, SchemaError
-from .hdf import join_tables
+from .hdf import join_tables, resolve_groups
 
 logger = get_logger(__name__)
 
@@ -75,14 +75,20 @@ def _is_record_file(path):
     return path.stat().st_size > 0 and _read_header(path)[:3] == DATA_INDEX
 
 
-def read_csv(directory, record):
+def read_csv(directory, record, groups=None):
     """ Read a record written by :class:`CSVRecorder`.
 
+    :param directory: The recorder's output directory.
+    :param record: Record name.
+    :param groups: Optional ``RecordGroup`` number or list of numbers; ``-1`` is the latest run.
     :return: DataFrame indexed by ``(RecordGroup, RecordGroupInd, RecordRow)``. The
         ``meta_timestamp`` column is parsed as timezone-aware datetimes.
     """
     path = Path(directory) / f"{record}.csv"
     df = pd.read_csv(path)
+    if groups is not None:
+        wanted = resolve_groups(groups, sorted(df[RECORD_GROUP].unique()))
+        df = df[df[RECORD_GROUP].isin(wanted)].reset_index(drop=True)
     if "meta_timestamp" in df.columns:
         df["meta_timestamp"] = pd.to_datetime(df["meta_timestamp"], utc=True, format="ISO8601")
     return df.set_index(DATA_INDEX)
