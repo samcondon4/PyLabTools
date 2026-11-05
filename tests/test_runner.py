@@ -270,6 +270,21 @@ def test_critical_consumer_failure_fails_run():
     assert isinstance(run.exception, ConsumerError)
 
 
+def test_finished_means_every_record_was_handled():
+    slow = ListConsumer(delay=0.002)
+    with slow:
+        plab.run(Counter(samples=100).connect("counts", slow))
+        assert len(slow.records) == 100  # - no join_queue() needed - #
+
+
+def test_recorder_failing_on_last_record_fails_run():
+    last = ListConsumer(fail_on=2)
+    with last:
+        run = plab.start(Counter(samples=3).connect("counts", last))
+        run.wait(5)
+    assert run.status is Status.FAILED
+
+
 def test_non_critical_consumer_failure_does_not_stop_run():
     viewer = ListConsumer(fail_on=2, critical=False, delay=0.001)
     recorder = ListConsumer()

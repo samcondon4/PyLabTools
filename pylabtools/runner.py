@@ -10,6 +10,8 @@ The run follows the state machine ``QUEUED -> RUNNING -> FINISHED | FAILED | ABO
 - ``shutdown()`` always runs on the worker thread after ``startup()``/``execute()``, even if they
   raise or a stop was requested.
 - An exception ends the run as ``FAILED``; it is logged and kept in :attr:`Run.exception`.
+- A run only ends once its recorders have handled every record it emitted, so ``FINISHED``
+  means the data has been stored, and a recorder failure (even on the last record) is ``FAILED``.
 - :meth:`Run.stop` only *requests* a stop. Procedures should check ``self.should_stop()``.
 - All parameter values of every step are validated before the run starts, so a typo in step 40 of
   an overnight sequence is reported immediately rather than at 3 a.m.
@@ -173,6 +175,10 @@ class Run:
         finally:
             for consumer in self._consumers:
                 consumer.notify_run_end(self.run_id)
+            # - FINISHED must mean "stored": wait until recorders have handled every record - #
+            for consumer in self._consumers:
+                if consumer.critical:
+                    consumer.join_queue()
             if error is None:
                 failed = [c for c in self._consumers if c.critical and c.failed]
                 if failed:

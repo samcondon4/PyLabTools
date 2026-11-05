@@ -11,11 +11,13 @@ from . import log
 from .consumers import Consumer, ConsumerError
 from .procedure import Procedure
 from .record import Record
+from .recorders import CSVRecorder, HDFRecorder, Recorder, SchemaError, hdf_records, read_csv, read_hdf
 from .runner import Run, Status, run, run_sequence, start, start_sequence, sweep
 
 __all__ = [
-    "Consumer", "ConsumerError", "Procedure", "Record", "Run", "Status",
-    "log", "run", "run_sequence", "start", "start_sequence", "sweep", "__version__",
+    "CSVRecorder", "Consumer", "ConsumerError", "HDFRecorder", "Procedure", "Record", "Recorder",
+    "Run", "SchemaError", "Status", "hdf_records", "log", "read_csv", "read_hdf", "run",
+    "run_sequence", "start", "start_sequence", "sweep", "__version__",
 ]
 
 
