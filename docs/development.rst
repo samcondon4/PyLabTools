@@ -41,6 +41,11 @@ What the suite protects:
     The scripts in ``examples/`` run end to end.
 ``test_package.py``
     Importing ``pylabtools`` imports no Qt and writes no files.
+``instruments/``
+    Instrument drivers, as in PyMeasure: protocol tests per driver
+    (``instruments/<manufacturer>/test_<module>.py``), PyMeasure's generic checks for every driver
+    (``instruments/test_all_instruments.py``), and read-only device tests
+    (``*_with_device.py``) that only run with ``pytest --device-address=<address>``.
 
 When changing behaviour, add a test that fails before the change. Changes to the output format
 should update ``test_recorders.py`` and :doc:`guide/recording`.

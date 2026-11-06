@@ -16,6 +16,8 @@ Ground-up rewrite. First milestone: the procedure -> emit -> record -> recorder/
   :meth:`Procedure.sleep() <pylabtools.Procedure.sleep>`. Consumer hook ``on_run_end`` is now
   ``on_group_end``. Metadata is also evaluated before ``startup()``.
 - :class:`pylabtools.Metadata` with ``records=`` limits metadata to specific records.
+- :mod:`pylabtools.instruments`, laid out like :mod:`pymeasure.instruments`, with a driver for the
+  Bluefors temperature controller (:class:`~pylabtools.instruments.bluefors.BlueforsTC`).
 - Packaging, tests and CI.
 
 See :doc:`migrating` for changes from 0.9.

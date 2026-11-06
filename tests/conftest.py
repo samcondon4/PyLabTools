@@ -47,3 +47,17 @@ def consumer():
     c = ListConsumer()
     with c:
         yield c
+
+
+# - device tests (as in PyMeasure): pytest --device-address=<address> runs *_with_device.py tests - #
+def pytest_addoption(parser):
+    parser.addoption("--device-address", action="store", default=None,
+                     help="Address of the device for tests that require a connected device")
+
+
+@pytest.fixture(scope="session")
+def connected_device_address(pytestconfig):
+    address = pytestconfig.getoption("device_address")
+    if address is None:
+        pytest.skip("Only works with connected device.")
+    return address

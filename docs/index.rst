@@ -49,6 +49,7 @@ PyLabTools 1.0 is a rewrite of the configuration-file based 0.9 series, which gr
     :caption: Reference
 
     api
+    api/instruments/index
     migrating
     changelog
     development
