@@ -18,6 +18,11 @@ Ground-up rewrite. First milestone: the procedure -> emit -> record -> recorder/
 - :class:`pylabtools.Metadata` with ``records=`` limits metadata to specific records.
 - :mod:`pylabtools.instruments`, laid out like :mod:`pymeasure.instruments`, with a driver for the
   Bluefors temperature controller (:class:`~pylabtools.instruments.bluefors.BlueforsTC`).
+- :mod:`pylabtools.analysis`: :class:`~pylabtools.analysis.Dataset` and
+  :class:`~pylabtools.analysis.RecordView` for selecting, iterating, reducing and time-aligning
+  recorded emits, and :func:`~pylabtools.analysis.plot.lineplot` /
+  :func:`~pylabtools.analysis.plot.scatterplot` for matplotlib plots of column expressions, coloured
+  by a parameter (colour bar or legend) and optionally averaged (``pip install pylabtools[analysis]``).
 - Packaging, tests and CI.
 
 See :doc:`migrating` for changes from 0.9.

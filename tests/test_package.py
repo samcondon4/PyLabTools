@@ -12,10 +12,10 @@ def test_version_is_1_0_series():
 
 
 def test_import_has_no_side_effects(tmp_path):
-    """ Importing pylabtools must not import Qt, create a QApplication, or write files (0.9 did all three). """
+    """ Importing pylabtools must not import Qt or matplotlib, create a QApplication, or write files. """
     code = (
         "import sys, pylabtools; "
-        "bad = [m for m in ('PyQt5', 'PyQt6', 'PySide2', 'PySide6', 'pyqtgraph') if m in sys.modules]; "
+        "bad = [m for m in ('PyQt5', 'PyQt6', 'PySide2', 'PySide6', 'pyqtgraph', 'matplotlib') if m in sys.modules]; "
         "assert not bad, bad"
     )
     subprocess.run([sys.executable, "-c", code], cwd=tmp_path, check=True)

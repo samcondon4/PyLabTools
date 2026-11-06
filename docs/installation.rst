@@ -27,6 +27,8 @@ Optional extras:
 ``gui``
     ``pyqtgraph`` and ``PyQt5`` for live plots (:mod:`pylabtools.gui`). Any Qt binding supported by
     pyqtgraph (PyQt5, PyQt6, PySide6) works; the extra installs PyQt5.
+``analysis``
+    ``matplotlib`` for plotting recorded data (:mod:`pylabtools.analysis.plot`).
 ``dev``
     ``pytest`` and ``pytest-timeout`` to run the test suite.
 ``docs``

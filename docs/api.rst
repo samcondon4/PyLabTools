@@ -78,6 +78,23 @@ Viewers
 .. autoclass:: pylabtools.LineViewer
     :members: plot_data
 
+Analysis
+========
+
+.. autoclass:: pylabtools.analysis.Dataset
+    :members: records, record
+
+.. autoclass:: pylabtools.analysis.RecordView
+    :members: groups, keys, columns, params, emit_table, to_frame, group, where, values, emits, reduce,
+        align
+
+.. autoclass:: pylabtools.analysis.Emit
+    :members: key, timestamp
+
+.. autofunction:: pylabtools.analysis.plot.lineplot
+.. autofunction:: pylabtools.analysis.plot.scatterplot
+.. autoexception:: pylabtools.analysis.plot.AveragingWarning
+
 GUI
 ===
 

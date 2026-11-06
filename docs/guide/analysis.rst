@@ -1,0 +1,178 @@
+Analysing data
+##############
+
+:mod:`pylabtools.analysis` works on recorded datasets while keeping the PyLabTools structure:
+emits, their procedure parameters and metadata, and the ``RecordGroup`` / ``RecordGroupInd`` /
+``RecordRow`` indices. It needs only pandas.
+
+Opening a dataset
+=================
+
+.. code-block:: python
+
+    import pylabtools as plab
+
+    ds = plab.analysis.Dataset("cooldown_12.h5")   # or a CSVRecorder directory
+    ds.records                                     # ['fridge', 's21']
+    s21 = ds["s21"]                                # a RecordView (read once, then cached)
+    latest = ds.record("s21", groups=-1)           # read only some RecordGroups
+
+A :class:`~pylabtools.analysis.RecordView` keeps the three tables apart:
+
+``s21.data``
+    one row per data row, indexed by ``(RecordGroup, RecordGroupInd, RecordRow)``
+``s21.proc_params`` and ``s21.meta``
+    one row per emit, indexed by ``(RecordGroup, RecordGroupInd)``
+
+``s21.emit_table()`` puts the parameters and metadata of every emit side by side as ``proc_<name>``
+and ``meta_<name>`` columns, and ``s21.to_frame()`` gives the joined frame of
+:func:`~pylabtools.read_hdf`. ``s21.groups``, ``s21.params`` and ``s21.columns`` list the
+RecordGroups, parameter names and data columns; ``len(s21)`` is the number of emits.
+
+Selecting emits
+===============
+
+Views are immutable; selections return new views, with the data rows subset to match.
+
+.. code-block:: python
+
+    s21.group(-1)                              # the latest RecordGroup
+    s21.where(power=-20)                       # a parameter or metadata value
+    s21.where(power=[-20, -10], trace=0)       # any of several values; all conditions must hold
+    s21.where(setpoint=lambda s: s < 0.1)      # a function of the column
+    s21.where(lambda t: t.proc_power > -15)    # a function of the emit_table()
+
+Names are looked up among the procedure parameters and then the metadata. If a name is in both,
+prefix it: ``where(proc_power=-20)`` or ``where(meta_power=-19.5)``. Float columns are compared with
+a relative tolerance of 1e-9, so ``0.15 - 0.05`` matches a stored ``0.1``.
+
+:meth:`~pylabtools.analysis.RecordView.values` lists the distinct values of a parameter or metadata
+item in a view, sorted, with the same name lookup. Floats that ``where()`` treats as equal are
+merged, so each value selects the emits it stands for:
+
+.. code-block:: python
+
+    s21.values("power")                        # [-20.0, -10.0, 0.0]
+    s21.group(-1).values("setpoint")           # only the latest RecordGroup
+    for power in s21.values("power"):
+        sel = s21.where(power=power)
+
+Iterating and reducing
+======================
+
+``s21.emits()`` (or iterating over the view) yields one :class:`~pylabtools.analysis.Emit` per emit,
+with ``group``, ``index``, ``params``, ``meta``, ``timestamp`` and ``data`` (indexed by
+``RecordRow``):
+
+.. code-block:: python
+
+    for emit in s21.where(trace=0):
+        plt.plot(emit.data.f, emit.data.s21, label=f"{emit.params['power']} dBm")
+
+:meth:`~pylabtools.analysis.RecordView.reduce` turns every emit into a few numbers and returns the
+emit table with the results as extra columns, one row per emit, ready to pivot or plot against the
+swept parameters:
+
+.. code-block:: python
+
+    s21.reduce("mean")                                     # mean of every numeric column
+    s21.reduce(lambda d: d.s21.min(), name="depth")
+    table = s21.reduce(lambda d: {"f_min": d.f[d.s21.idxmin()], "depth": d.s21.min()})
+    table.pivot_table(index="proc_setpoint", columns="proc_power", values="depth")
+
+Aligning records
+================
+
+:meth:`~pylabtools.analysis.RecordView.align` attaches statistics of another record to every emit,
+for example the fridge temperatures measured during each VNA trace. The statistics become new
+metadata of the returned view, so they work with ``where()``, ``emits()`` and ``reduce()``:
+
+.. code-block:: python
+
+    s21 = ds["s21"].align(ds["fridge"])               # mean of each fridge column per RecordGroup
+    s21.meta[["fridge_T5", "fridge_n"]]
+    s21.where(fridge_T5=lambda T: T < 0.05).reduce(...)
+
+``by`` chooses which rows of the other record belong to an emit:
+
+``by="group"`` (default)
+    all rows in the same ``RecordGroup``. With ``group_by="setpoint"`` (see :doc:`sequences`) that
+    is everything measured at the same setpoint.
+``by="nearest"``
+    the emit nearest in time; also adds ``<prefix>dt``, the matched emit's time minus this emit's
+    time. ``tolerance="10s"`` leaves emits without a match within 10 s as NaN.
+``by="window"``
+    all emits within ``window`` of this emit: ``window=30`` (seconds either side) or
+    ``window=("60s", 0)`` (the minute before).
+
+``agg`` is the statistic (``"mean"``, ``"median"``, ``"std"``, ``"min"``, ``"max"`` or a function of a
+Series), ``columns`` limits the aggregated columns (default: all numeric ones), and ``prefix``
+changes the new column names (default ``<record>_``). ``<prefix>n`` is the number of rows each
+statistic was computed from. Times are the ``timestamp`` metadata of each emit, i.e. when it was
+emitted.
+
+Plotting
+========
+
+:mod:`pylabtools.analysis.plot` draws views with matplotlib (``pip install pylabtools[analysis]``).
+:func:`~pylabtools.analysis.plot.lineplot` and :func:`~pylabtools.analysis.plot.scatterplot` take
+the same arguments, draw one line (or set of points) per emit with ``ax.plot`` / ``ax.scatter``, and
+return ``(fig, ax)``:
+
+.. code-block:: python
+
+    from pylabtools.analysis.plot import lineplot, scatterplot
+
+    mag_db = "20*np.log10(np.sqrt(I**2 + Q**2))"
+    fig, ax = lineplot(vna, x="frequency", y=mag_db, ylabel="|S21| (dB)")
+    ax.set_xlim(5.995e9, 6.005e9)                     # carry on with the Axes as usual
+
+``x`` and ``y`` are column names or Python expressions, evaluated for every emit with the data
+columns, ``np``, and the emit's parameters and metadata (names looked up as in ``where()``). Scalars
+are repeated for every row, so ``y="I * proc_power"`` works. The axis labels default to the strings
+you passed; ``xlabel=``, ``ylabel=`` and ``title=`` override them (there is no title by default).
+Pass ``ax=`` to draw onto existing axes, e.g. one panel of ``fig.subplots(1, 2)``; other keyword
+arguments (``lw``, ``ls``, ``marker``, ``s``, ``alpha``, ...) go to ``ax.plot`` / ``ax.scatter``.
+
+Colouring by a parameter
+------------------------
+
+``color_by`` colours every emit by a parameter or metadata value, or an expression of them:
+
+.. code-block:: python
+
+    lineplot(vna, x="frequency", y=mag_db, color_by="setpoint")            # colour bar
+    lineplot(vna, x="frequency", y=mag_db, color_by="setpoint * 1e3", clabel="T (mK)",
+             cmap="plasma", norm=matplotlib.colors.LogNorm())
+    lineplot(vna, x="frequency", y=mag_db, color_by="mode")                # legend
+    lineplot(vna.align(fridge), x="frequency", y=mag_db, color_by="fridge_T5")
+
+Numeric values are mapped onto ``cmap`` (through ``norm``, whose unset limits come from the data)
+with a colour bar (``colorbar=False`` to omit it). Other values, such as strings, get one colour
+per distinct value and a legend (``legend=False`` to omit it). ``clabel`` sets the colour bar or
+legend title, by default the ``color_by`` string.
+
+Averaging
+---------
+
+Every emit is drawn by default. With ``average=True`` the emits sharing a ``color_by`` value (or all
+emits, without ``color_by``) become one line:
+
+.. code-block:: python
+
+    lineplot(vna, x="frequency", y=mag_db, color_by="setpoint", average=True)
+
+The numeric data columns are averaged row by row (by ``RecordRow``) *before* ``x`` and ``y`` are
+evaluated, so the example above averages I and Q and then takes the magnitude. To average the
+magnitudes instead, emit or compute them as a column first. The emits of a group must have the
+same number of rows; parameters that differ within a group (e.g. a trace number) cannot be used in
+``x`` or ``y``.
+
+Rows are matched by ``RecordRow``, so averaging normally expects every emit of a group to have the
+same ``x`` (the same frequency grid, say). If ``x`` differs, the emits are still averaged but an
+:class:`~pylabtools.analysis.plot.AveragingWarning` names the affected groups. That is expected when
+averaging I-Q circles, where ``x`` is itself measured; silence it with ``xaverage_silent=True``:
+
+.. code-block:: python
+
+    scatterplot(vna, x="I", y="Q", color_by="setpoint", average=True, xaverage_silent=True)
