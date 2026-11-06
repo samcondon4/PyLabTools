@@ -18,6 +18,9 @@ Ground-up rewrite. First milestone: the procedure -> emit -> record -> recorder/
 - :class:`pylabtools.Metadata` with ``records=`` limits metadata to specific records.
 - :mod:`pylabtools.instruments`, laid out like :mod:`pymeasure.instruments`, with a driver for the
   Bluefors temperature controller (:class:`~pylabtools.instruments.bluefors.BlueforsTC`).
+- Driver for the Keysight P9374A VNA (:class:`~pylabtools.instruments.keysight.KeysightP9374a`),
+  ported from 0.9, with :meth:`~pylabtools.instruments.keysight.KeysightP9374a.acquire_trace`
+  waiting for complete sweeps and averages.
 - Packaging, tests and CI.
 
 See :doc:`migrating` for changes from 0.9.

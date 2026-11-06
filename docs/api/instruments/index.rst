@@ -14,6 +14,7 @@ contributed to PyMeasure.
     :maxdepth: 2
 
     bluefors/index
+    keysight/index
 
 Adding a driver
 ===============
