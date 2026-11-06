@@ -285,6 +285,29 @@ def test_recorder_failing_on_last_record_fails_run():
     assert run.status is Status.FAILED
 
 
+def test_non_critical_consumer_failing_during_put_does_not_stop_run():
+    """ Regression: a viewer that failed between the run's failed-check and put() raised
+    ConsumerError into emit() and failed the whole run (a rare race). """
+    class RacyViewer(ListConsumer):
+        def put(self, record):
+            # - fail on the consumer side exactly while the run is handing over a record - #
+            self._exception = RuntimeError("viewer broke")
+            super().put(record)
+
+    viewer, recorder = RacyViewer(critical=False), ListConsumer()
+    proc = Counter(samples=20).connect("counts", viewer, recorder)
+    with viewer, recorder:
+        run = plab.run(proc)
+    assert run.status is Status.FINISHED
+    assert len(recorder.records) == 20
+
+
+def test_non_critical_consumer_not_started_is_still_an_error():
+    proc = Counter().connect("counts", ListConsumer(critical=False, name="view"))
+    with pytest.raises(ConsumerError, match="view is not running"):
+        plab.run(proc)
+
+
 def test_non_critical_consumer_failure_does_not_stop_run():
     viewer = ListConsumer(fail_on=2, critical=False, delay=0.001)
     recorder = ListConsumer()
