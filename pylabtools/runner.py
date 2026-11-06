@@ -328,9 +328,18 @@ class Run:
             record = Record(record_name, data, proc_params=self._proc_params, meta=full_meta,
                             run_id=self.run_id, index=index, group=self._group_id or self.run_id)
             for consumer in consumers:
-                if consumer.failed and not consumer.critical:
+                if consumer.critical:
+                    consumer.put(record)
                     continue
-                consumer.put(record)
+                # - non-critical (viewers): a failure must never stop the run, including one that
+                #   happens between the check and put() on the consumer's own thread - #
+                if consumer.failed:
+                    continue
+                try:
+                    consumer.put(record)
+                except ConsumerError:
+                    if not consumer.failed:
+                        raise  # - not running: a usage error, report it - #
         return record
 
 

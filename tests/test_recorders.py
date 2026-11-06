@@ -276,6 +276,9 @@ def test_hdf_stores_datetimes_with_nanosecond_resolution(tmp_path):
     assert str(meta["started"].dtype) == "datetime64[ns, UTC]"
 
 
+@pytest.mark.skipif(int(pd.__version__.split(".")[0]) < 3,
+                    reason="non-nanosecond datetime tables come from pandas 3, which pandas 2 cannot read "
+                           "at all; pandas 2 also cannot write them to set up this test")
 @pytest.mark.parametrize("unit", ["us", "ms", "s"])
 def test_hdf_appends_to_files_with_other_datetime_resolution(tmp_path, unit):
     """ Regression: a file written with another pandas version (different datetime resolution)
