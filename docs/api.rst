@@ -95,6 +95,11 @@ Analysis
 .. autofunction:: pylabtools.analysis.plot.scatterplot
 .. autoexception:: pylabtools.analysis.plot.AveragingWarning
 
+Converting 0.9 files
+====================
+
+.. autofunction:: pylabtools.legacy.convert_hdf
+
 GUI
 ===
 

@@ -23,6 +23,8 @@ Ground-up rewrite. First milestone: the procedure -> emit -> record -> recorder/
   recorded emits, and :func:`~pylabtools.analysis.plot.lineplot` /
   :func:`~pylabtools.analysis.plot.scatterplot` for matplotlib plots of column expressions, coloured
   by a parameter (colour bar or legend) and optionally averaged (``pip install pylabtools[analysis]``).
+- :func:`pylabtools.legacy.convert_hdf` converts 0.9 HDF5 files to the 1.0 format (integer
+  indices, UTC timestamps, one group per record), optionally from groups named by ``record_name``.
 - Packaging, tests and CI.
 
 See :doc:`migrating` for changes from 0.9.

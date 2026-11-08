@@ -7,7 +7,7 @@ imported when first accessed as ``pylabtools.gui``.
 
 __version__ = "1.0.0.dev0"
 
-from . import analysis, log
+from . import analysis, legacy, log
 from .consumers import Consumer, ConsumerError, running
 from .procedure import Metadata, Procedure, every
 from .record import Record
@@ -16,9 +16,10 @@ from .runner import Run, Status, run, run_sequence, start, start_sequence, sweep
 from .viewers import LineViewer, Viewer
 
 __all__ = [
-    "CSVRecorder", "Consumer", "ConsumerError", "HDFRecorder", "LineViewer", "Metadata", "Procedure", "Record",
-    "Recorder", "Run", "SchemaError", "Status", "Viewer", "analysis", "every", "hdf_records", "log", "read_csv",
-    "read_hdf", "run", "run_sequence", "running", "start", "start_sequence", "sweep", "wait", "__version__",
+    "CSVRecorder", "Consumer", "ConsumerError", "HDFRecorder", "LineViewer", "Metadata", "Procedure",
+    "Record", "Recorder", "Run", "SchemaError", "Status", "Viewer", "analysis", "every", "hdf_records",
+    "legacy", "log", "read_csv", "read_hdf", "run", "run_sequence", "running", "start", "start_sequence",
+    "sweep", "wait", "__version__",
 ]
 
 
