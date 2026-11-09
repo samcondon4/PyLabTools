@@ -20,9 +20,13 @@ Ground-up rewrite. First milestone: the procedure -> emit -> record -> recorder/
   Bluefors temperature controller (:class:`~pylabtools.instruments.bluefors.BlueforsTC`).
 - :mod:`pylabtools.analysis`: :class:`~pylabtools.analysis.Dataset` and
   :class:`~pylabtools.analysis.RecordView` for selecting (emits with ``where()``, data rows with
-  ``rows()``, both by expression strings), iterating, reducing and time-aligning recorded emits, and :func:`~pylabtools.analysis.plot.lineplot` /
-  :func:`~pylabtools.analysis.plot.scatterplot` for matplotlib plots of column expressions, coloured
-  by a parameter (colour bar or legend) and optionally averaged (``pip install pylabtools[analysis]``).
+  ``rows()``, both by expression strings), iterating, reducing and time-aligning recorded emits,
+  and :func:`~pylabtools.analysis.plot.lineplot` / :func:`~pylabtools.analysis.plot.scatterplot`
+  for matplotlib plots of column expressions, coloured by a parameter (colour bar or legend) and
+  optionally averaged (``pip install pylabtools[analysis]``).
+- :mod:`pylabtools.analysis.resonator`, starting with
+  :func:`~pylabtools.analysis.resonator.plot_res_data`: magnitude, phase and I-Q panels of
+  resonator traces in one figure.
 - :func:`pylabtools.legacy.convert_hdf` converts 0.9 HDF5 files to the 1.0 format (integer
   indices, UTC timestamps, one group per record), optionally from groups named by ``record_name``.
 - Packaging, tests and CI.

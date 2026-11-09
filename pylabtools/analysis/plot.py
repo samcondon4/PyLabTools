@@ -110,8 +110,8 @@ def _plot(kind, view, x, y, color_by, average, xaverage_silent, ax, xlabel, ylab
             raise ValueError(f"{clash[0]}= cannot be combined with color_by=; the colours come from color_by.")
 
     emits = list(view.emits())
-    shared = set(view.proc_params.columns) & set(view.meta.columns)
-    cvalues = None if color_by is None else [_color_value(e, color_by, shared) for e in emits]
+    shared = _shared(view)
+    cvalues = _color_values(emits, color_by, shared)
     traces, differing = _traces(emits, x, y, cvalues, average, shared)
     if differing and not xaverage_silent:
         which = f"color_by values {differing}" if color_by is not None else "all emits"
@@ -194,6 +194,23 @@ def _average(emits, x, y, value, shared):
     meta = _common([e.meta for e in emits])
     names = _Names(data, params, meta, shared & set(params) & set(meta))
     return _evaluate(x, names, n), _evaluate(y, names, n), same_x
+
+
+def _shared(view):
+    """ Names that are both procedure parameters and metadata, which must be prefixed. """
+    return set(view.proc_params.columns) & set(view.meta.columns)
+
+
+def _color_values(emits, color_by, shared):
+    """ The ``color_by`` value of every emit, or None without ``color_by``. """
+    return None if color_by is None else [_color_value(e, color_by, shared) for e in emits]
+
+
+def _numeric_colors(view, color_by):
+    """ True if ``color_by`` gives numbers (colour bar), False for other values (legend), None
+    without ``color_by``. """
+    values = _color_values(list(view.emits()), color_by, _shared(view))
+    return None if values is None else all(_is_number(v) for v in values)
 
 
 def _color_value(emit, color_by, shared):

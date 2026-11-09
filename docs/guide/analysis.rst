@@ -216,3 +216,26 @@ averaging I-Q circles, where ``x`` is itself measured; silence it with ``xaverag
 .. code-block:: python
 
     scatterplot(vna, x="I", y="Q", color_by="setpoint", average=True, xaverage_silent=True)
+
+Resonator traces
+================
+
+:mod:`pylabtools.analysis.resonator` works on resonator traces: emits whose data has the columns
+``frequency``, ``I`` and ``Q``. :func:`~pylabtools.analysis.resonator.plot_res_data` draws the
+magnitude (dB) and the unwrapped phase against frequency, and Q against I with equal scales, in one
+figure:
+
+.. code-block:: python
+
+    from pylabtools.analysis.resonator import plot_res_data
+
+    fig, axes = plot_res_data(vna, color_by="power", clabel="Power (dBm)")
+    axes["mag"].set_xlim(5.995e9, 6.005e9)                    # "mag", "phase" and "iq"
+
+    window = vna.rows("abs(frequency - 6e9) < 2e6")
+    plot_res_data(window, color_by="setpoint", average=True)
+
+It takes the arguments of :func:`~pylabtools.analysis.plot.lineplot` except ``x`` and ``y``, with
+one colour bar or legend for the whole figure. ``axes=`` draws onto three existing Axes,
+``scatter_kwargs`` styles the I-Q points, and other keyword arguments style the lines. With
+``average=True``, I and Q are averaged row by row; only differing frequencies are warned about.

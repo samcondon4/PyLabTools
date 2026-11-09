@@ -95,6 +95,13 @@ Analysis
 .. autofunction:: pylabtools.analysis.plot.scatterplot
 .. autoexception:: pylabtools.analysis.plot.AveragingWarning
 
+Resonators
+----------
+
+.. automodule:: pylabtools.analysis.resonator
+
+.. autofunction:: pylabtools.analysis.resonator.plot_res_data
+
 Converting 0.9 files
 ====================
 

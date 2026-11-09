@@ -7,13 +7,15 @@ pylabtools[analysis]``) and is imported only when first used, e.g. as
 """
 from .dataset import Dataset, Emit, RecordView
 
-__all__ = ["Dataset", "Emit", "RecordView", "lineplot", "plot", "scatterplot"]
+__all__ = ["Dataset", "Emit", "RecordView", "lineplot", "plot", "resonator", "scatterplot"]
 
 
 def __getattr__(name):
     # - import matplotlib lazily, so the core never requires it - #
+    import importlib
     if name in ("plot", "lineplot", "scatterplot"):
-        import importlib
         plot = importlib.import_module(".plot", __name__)
         return plot if name == "plot" else getattr(plot, name)
+    if name == "resonator":
+        return importlib.import_module(".resonator", __name__)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
