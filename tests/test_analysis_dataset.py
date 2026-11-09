@@ -235,6 +235,54 @@ def test_where_name_lookup_errors(ds):
     assert len(ds["s21"].where(meta_power=-19.5)) == 4
 
 
+# - concat --------------------------------------------------------------------------------------- #
+def test_concat_with_labels(ds):
+    s21 = ds["s21"]
+    later = s21.where("setpoint == 0.1")                        # - RecordGroup 1 only - #
+    both = plab.analysis.concat({"cd1": s21, "cd2": later})
+    assert both.name == "s21"
+    assert len(both) == len(s21) + len(later) == 12
+    assert both.groups == [0, 1, 3]                             # - the second view follows the first - #
+    assert len(both.data) == len(s21.data) + len(later.data)
+    assert both.values("dataset") == ["cd1", "cd2"]
+    assert len(both.where("dataset == 'cd2'")) == 4
+    pd.testing.assert_frame_equal(both.where(dataset="cd2").data.droplevel("RecordGroup"),
+                                  later.data.droplevel("RecordGroup"))
+    assert s21.groups == [0, 1] and "dataset" not in s21.meta.columns   # - inputs unchanged - #
+
+
+def test_concat_without_labels_and_custom_names(ds):
+    s21 = ds["s21"]
+    both = plab.analysis.concat([s21, s21])
+    assert both.groups == [0, 1, 2, 3] and "dataset" not in both.meta.columns
+    both = plab.analysis.concat({"a": s21, "b": s21}, label="run")
+    assert both.values("run") == ["a", "b"]
+    mixed = plab.analysis.concat({"vna": s21, "fridge": ds["fridge"]}, name="mixed")
+    assert mixed.name == "mixed"
+    assert set(mixed.columns) == {"f", "s21", "T5", "T1"}
+    assert mixed.where(dataset="fridge").data["f"].isna().all()   # - missing columns are NaN - #
+
+
+def test_concat_skips_empty_views(ds):
+    s21 = ds["s21"]
+    empty = s21.where("setpoint == 0.3")
+    both = plab.analysis.concat({"empty": empty, "full": s21})
+    assert both.groups == [0, 1] and len(both) == 8
+    assert len(plab.analysis.concat([empty, empty])) == 0
+
+
+def test_concat_errors(ds):
+    s21 = ds["s21"]
+    with pytest.raises(ValueError, match="at least one"):
+        plab.analysis.concat([])
+    with pytest.raises(ValueError, match="different record names.*name="):
+        plab.analysis.concat([s21, ds["fridge"]])
+    with pytest.raises(ValueError, match="already metadata"):
+        plab.analysis.concat({"a": s21, "b": s21}, label="trace")
+    with pytest.raises(TypeError, match="RecordViews"):
+        plab.analysis.concat([s21, s21.data])
+
+
 def test_empty_selection_is_usable(ds):
     empty = ds["s21"].where(setpoint=0.3)
     assert empty.groups == [] and len(empty.data) == 0

@@ -91,6 +91,8 @@ Analysis
 .. autoclass:: pylabtools.analysis.Emit
     :members: key, timestamp
 
+.. autofunction:: pylabtools.analysis.concat
+
 .. autofunction:: pylabtools.analysis.plot.lineplot
 .. autofunction:: pylabtools.analysis.plot.scatterplot
 .. autoexception:: pylabtools.analysis.plot.AveragingWarning

@@ -28,7 +28,7 @@ from ..recorders.csv import _is_record_file, read_csv
 from ..recorders.hdf import hdf_records, join_tables, read_hdf, resolve_groups
 from .expressions import Names, evaluate
 
-__all__ = ["Dataset", "Emit", "RecordView"]
+__all__ = ["Dataset", "Emit", "RecordView", "concat"]
 
 _PROC, _META = "proc_", "meta_"
 
@@ -452,6 +452,72 @@ class RecordView:
             raise ValueError(f"align() columns {clash} are already in the metadata of {self.name!r}; "
                              "pass another prefix=.")
         return RecordView(self.name, self.data, self.proc_params, pd.concat([self.meta, stats], axis=1))
+
+
+def concat(views, label="dataset", name=None):
+    """ Combine several views, e.g. the same record from two datasets, into one.
+
+    .. code-block:: python
+
+        both = plab.analysis.concat({"cooldown 1": ds1["s21"], "cooldown 2": ds2["s21"]})
+        plot_res_data(both, color_by="dataset")
+        both.where("dataset == 'cooldown 2' and power == -10")
+
+        plab.analysis.concat([ds1["s21"], ds2["s21"]])        # without labels
+
+    Emits are numbered by ``(RecordGroup, RecordGroupInd)`` within each view, so the RecordGroups
+    of each view are renumbered to follow those of the view before it, keeping their order. Given a
+    mapping, every emit gets a metadata item ``label`` (default ``"dataset"``) holding its view's
+    key, to select or colour by. Data columns, parameters or metadata that only some views have
+    are NaN for the emits of the others.
+
+    :param views: A mapping of labels to :class:`RecordView`, or a sequence of them (no labels).
+    :param label: Name of the metadata item holding the labels of a mapping.
+    :param name: Record name of the result; required if the views have different names.
+    :return: A new :class:`RecordView`.
+    :raises ValueError: If there are no views, their names differ and ``name`` is not given, or
+        ``label`` is already metadata of a view.
+    """
+    labelled = isinstance(views, Mapping)
+    items = list(views.items()) if labelled else [(None, v) for v in views]
+    if not items:
+        raise ValueError("concat() needs at least one RecordView.")
+    for _, view in items:
+        if not isinstance(view, RecordView):
+            raise TypeError(f"concat() combines RecordViews, not {type(view).__name__}.")
+    if name is None:
+        names = sorted({view.name for _, view in items})
+        if len(names) > 1:
+            raise ValueError(f"concat() views have different record names {names}; pass name= to combine them.")
+        name = names[0]
+    if labelled:
+        clash = [view.name for _, view in items if label in view.meta.columns]
+        if clash:
+            raise ValueError(f"concat() label {label!r} is already metadata of the views; pass another label=.")
+
+    data, params, meta, offset = [], [], [], 0
+    for key, view in items:
+        shift = _group_shift(offset)
+        data.append(shift(view.data))
+        params.append(shift(view.proc_params))
+        meta.append(shift(view.meta) if not labelled else shift(view.meta).assign(**{label: key}))
+        if len(view):
+            offset += max(view.groups) + 1
+    return RecordView(name, _concat_frames(data), _concat_frames(params), _concat_frames(meta))
+
+
+def _group_shift(offset):
+    def shift(df):
+        return df.rename(index=lambda g: g + offset, level=RECORD_GROUP) if offset else df
+    return shift
+
+
+def _concat_frames(frames):
+    """ ``pd.concat`` without the empty frames, whose dtypes pandas no longer lets decide the result. """
+    kept = [f for f in frames if len(f.index)]
+    if not kept:
+        return frames[0]
+    return pd.concat(kept) if len(kept) > 1 else kept[0]
 
 
 # - helpers -------------------------------------------------------------------------------------- #

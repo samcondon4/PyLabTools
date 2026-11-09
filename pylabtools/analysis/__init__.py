@@ -5,9 +5,9 @@ pandas. Plotting (:mod:`pylabtools.analysis.plot`) needs matplotlib (``pip insta
 pylabtools[analysis]``) and is imported only when first used, e.g. as
 ``pylabtools.analysis.lineplot``.
 """
-from .dataset import Dataset, Emit, RecordView
+from .dataset import Dataset, Emit, RecordView, concat
 
-__all__ = ["Dataset", "Emit", "RecordView", "lineplot", "plot", "resonator", "scatterplot"]
+__all__ = ["Dataset", "Emit", "RecordView", "concat", "lineplot", "plot", "resonator", "scatterplot"]
 
 
 def __getattr__(name):

@@ -88,6 +88,24 @@ merged, so each value selects the emits it stands for:
     for power in s21.values("power"):
         sel = s21.where(power=power)
 
+Combining views
+===============
+
+:func:`~pylabtools.analysis.concat` combines views, e.g. the same record from two datasets, so
+they can be selected and plotted together:
+
+.. code-block:: python
+
+    both = plab.analysis.concat({"cooldown 1": ds1["s21"], "cooldown 2": ds2["s21"]})
+    plot_res_data(both, color_by="dataset")              # one legend entry per dataset
+    both.where("dataset == 'cooldown 2' and power == -10")
+
+Given a mapping, every emit gets a ``dataset`` metadata item (``label=`` changes the name) holding
+its key; a list combines the views without one. The RecordGroups of each view are renumbered to
+follow those of the view before, since emits are numbered within each view. Columns, parameters or
+metadata that only some views have are NaN for the others. Views of different records are combined
+only when ``name=`` gives the new record name.
+
 Iterating and reducing
 ======================
 
