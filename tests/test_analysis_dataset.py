@@ -128,18 +128,97 @@ def test_group(ds):
         s21.group(5)
 
 
-def test_where_values_lists_and_functions(ds):
+def test_where_values_and_lists(ds):
     s21 = ds["s21"]
     assert len(s21.where(setpoint=0.1)) == 4
     assert len(s21.where(setpoint=0.1, trace=0)) == 2
     assert len(s21.where(trace=[0, 1], proc_power=-20)) == 4
-    assert len(s21.where(setpoint=lambda s: s < 0.07)) == 4
-    assert len(s21.where(lambda t: t.proc_setpoint > 0.07, trace=1)) == 2
     assert len(s21.where(setpoint=0.3)) == 0
+
+
+def test_where_expressions(ds):
+    s21 = ds["s21"]
+    assert len(s21.where("setpoint < 0.07")) == 4
+    assert len(s21.where("setpoint > 0.07", trace=1)) == 2              # - with keywords - #
+    assert len(s21.where("setpoint > 0.07", "trace == 1")) == 2         # - all must hold - #
+    assert len(s21.where("0.01 < setpoint < 0.07 and trace == 0")) == 2
+    assert len(s21.where("trace in [0, 1] and not proc_power == -10")) == 4
+    assert len(s21.where("proc_power > meta_power - 1")) == 8
+    assert len(s21.where("trace != 0 or setpoint == 0.1")) == 6
+    assert len(s21.where("np.abs(proc_power) > 15")) == 4
 
 
 def test_where_floats_use_isclose(ds):
     assert len(ds["s21"].where(setpoint=0.15 - 0.05)) == 4   # - 0.09999999999999999 - #
+    assert len(ds["s21"].where("setpoint == 0.15 - 0.05")) == 4
+    assert len(ds["s21"].where("setpoint in [0.15 - 0.05]")) == 4
+    assert len(ds["s21"].where("setpoint != 0.15 - 0.05")) == 4
+
+
+def test_where_masks(ds):
+    s21 = ds["s21"]
+    depth = s21.reduce(lambda d: d.s21.min(), name="depth")["depth"]
+    assert len(s21.where(depth < -4.5)) == 4                            # - a Series, one value per emit - #
+    assert len(s21.where((depth < -4.5).to_numpy(), trace=0)) == 2
+
+
+def test_where_errors(ds):
+    s21 = ds["s21"]
+    with pytest.raises(TypeError, match="not functions"):
+        s21.where(lambda t: t.proc_setpoint > 0.07)
+    with pytest.raises(TypeError, match="expression strings"):
+        s21.where(setpoint=lambda s: s < 0.07)
+    with pytest.raises(TypeError, match="one value per emit"):
+        s21.where(np.ones(3, dtype=bool))
+    with pytest.raises(NameError, match="'f'.*selected with rows"):
+        s21.where("f > 6e9")
+    with pytest.raises(NameError, match="both a procedure parameter and metadata"):
+        s21.where("power > -15")
+    with pytest.raises(ValueError, match="True or False per emit"):
+        s21.where("setpoint * 2")
+    with pytest.raises(SyntaxError, match="not a valid expression"):
+        s21.where("setpoint <")
+
+
+# - rows ----------------------------------------------------------------------------------------- #
+def test_rows_selects_data_within_every_emit(ds):
+    s21 = ds["s21"]
+    window = s21.rows("5.995e9 <= f < 6.01e9")
+    assert len(window) == len(s21) == 8                                 # - every emit kept - #
+    assert len(window.data) == 8 * 3
+    assert window.data.index.get_level_values("RecordRow").unique().tolist() == [1, 2, 3]
+    pd.testing.assert_frame_equal(window.proc_params, s21.proc_params)
+    pd.testing.assert_frame_equal(window.meta, s21.meta)
+    assert len(s21.rows("f > 6e9", "s21 < -0.5").data) == 12             # - all must hold - #
+    assert len(s21.rows("f > 6e9 and s21 < -0.5").data) == 12
+
+
+def test_rows_use_params_and_meta_per_emit(ds):
+    s21 = ds["s21"]
+    # - the dip (row 2) is 0.3 * |power| + trace deep; only it is deeper than half of that - #
+    deep = s21.rows("s21 < -0.15 * np.abs(proc_power) - trace")
+    assert len(deep.data) == 8
+    assert deep.data.index.get_level_values("RecordRow").unique().tolist() == [2]
+    assert len(s21.rows("trace == 1").data) == 4 * 5                     # - scalars are repeated - #
+    for emit in s21.rows("trace == 1"):
+        assert len(emit.data) == (5 if emit.meta["trace"] == 1 else 0)  # - emptied emits stay - #
+
+
+def test_rows_chain_with_where_and_reduce(ds):
+    sel = ds["s21"].where(proc_power=[-20]).rows("f >= 6e9")
+    assert len(sel) == 4 and len(sel.data) == 4 * 3
+    assert sel.reduce("min")["f"].tolist() == pytest.approx([6e9] * 4)
+    assert ds["s21"].rows() is ds["s21"]
+
+
+def test_rows_errors(ds):
+    s21 = ds["s21"]
+    with pytest.raises(TypeError, match="expression strings"):
+        s21.rows(lambda d: d.f > 6e9)
+    with pytest.raises(NameError, match="'nope'.*Available: data columns"):
+        s21.rows("nope > 1")
+    with pytest.raises(ValueError, match="True or False per row"):
+        s21.rows("f * 2")
 
 
 def test_where_subsets_the_data_too(ds):
@@ -265,7 +344,7 @@ def test_align_by_group(ds):
     assert s21.meta.loc[(1, 0), "fridge_T5"] == pytest.approx(0.1 + 0.0015)
     assert s21.meta["fridge_n"].tolist() == [4] * 8
     # - the aligned values work with where() and are passed to emits - #
-    assert len(s21.where(fridge_T5=lambda T: T < 0.07)) == 4
+    assert len(s21.where("fridge_T5 < 0.07")) == 4
     assert "fridge_T5" in next(s21.emits()).meta
 
 

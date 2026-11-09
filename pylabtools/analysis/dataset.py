@@ -11,7 +11,7 @@ A :class:`Dataset` opens one recorder output (an :class:`~pylabtools.HDFRecorder
 ``meta``
     One row per emit, indexed by ``(RecordGroup, RecordGroupInd)``, including ``timestamp``.
 
-Views are immutable: :meth:`RecordView.where`, :meth:`RecordView.group` and
+Views are immutable: :meth:`RecordView.where`, :meth:`RecordView.rows`, :meth:`RecordView.group` and
 :meth:`RecordView.align` return new views.
 """
 import numbers
@@ -26,6 +26,7 @@ from pandas.api import types as ptypes
 from ..recorders.base import DATA_INDEX, EMIT_INDEX, RECORD_GROUP, RECORD_ROW, TIMESTAMP
 from ..recorders.csv import _is_record_file, read_csv
 from ..recorders.hdf import hdf_records, join_tables, read_hdf, resolve_groups
+from .expressions import Names, evaluate
 
 __all__ = ["Dataset", "Emit", "RecordView"]
 
@@ -189,30 +190,96 @@ class RecordView:
             raise KeyError(f"{self.name!r} has no RecordGroup {missing}; groups are {self.groups}.")
         return self._subset(self.keys[self.keys.get_level_values(RECORD_GROUP).isin(wanted)])
 
-    def where(self, *predicates, **conditions):
-        """ The emits whose parameters and metadata match all of the given conditions.
+    def where(self, *conditions, **matches):
+        """ The emits whose parameters and metadata meet all of the given conditions.
 
         .. code-block:: python
 
-            s21.where(power=-20)                     # equality (floats compared with isclose)
-            s21.where(power=[-20, -10], trace=0)     # any of several values
-            s21.where(setpoint=lambda s: s < 0.1)    # a function of the column
-            s21.where(lambda t: t.proc_power > t.meta_vna_power - 1)   # of the emit_table()
+            s21.where("setpoint < 0.1")                          # an expression
+            s21.where("power in [-20, -10] and trace == 0")
+            s21.where("proc_power > meta_vna_power - 1")         # prefixed names
+            s21.where(power=p)                                   # a value, e.g. a variable
+            s21.where(power=[-20, -10], trace=0)                 # any of several values
 
-        Keyword names are looked up among the procedure parameters and the metadata; prefix them
-        with ``proc_`` or ``meta_`` when a name is in both.
+        Expressions are Python, evaluated for all emits at once with the parameter and metadata
+        names and ``np``, as in :mod:`~pylabtools.analysis.plot`. ``a < x < b``, ``and``, ``or``,
+        ``not`` and ``in [...]`` work element-wise, and ``==`` compares floats with a relative
+        tolerance of 1e-9 (so ``0.15 - 0.05`` matches a stored ``0.1``), as do the keywords. Names
+        are looked up among the procedure parameters and then the metadata; prefix them with
+        ``proc_`` or ``meta_`` when a name is in both. To select rows of the data within each emit,
+        use :meth:`rows`.
 
-        :param predicates: Functions taking the :meth:`emit_table` and returning a boolean mask.
-        :param conditions: ``name=value``: a value, a list/tuple/set of values, or a function of the
-            column returning a boolean mask.
+        :param conditions: Expression strings, or boolean masks with one value per emit (e.g. built
+            from :meth:`reduce`).
+        :param matches: ``name=value``: a value, or a list/tuple/set of values to match any of.
+        :raises TypeError: For a condition that is neither a string nor a mask.
         """
         table = self.emit_table()
         mask = np.ones(len(table.index), dtype=bool)
-        for predicate in predicates:
-            mask &= np.asarray(predicate(table), dtype=bool)
-        for key, condition in conditions.items():
-            mask &= _matches(table[self._column(table, key)], condition)
+        for condition in conditions:
+            mask &= self._emit_mask(condition)
+        for key, value in matches.items():
+            mask &= _matches(table[self._column(table, key)], value, key)
         return self._subset(table.index[mask])
+
+    def rows(self, *conditions):
+        """ Keep only the data rows meeting all of the given conditions, within every emit.
+
+        .. code-block:: python
+
+            s21.rows("9e9 < frequency < 10e9")                   # a frequency window
+            s21.rows("abs(frequency - f0) < 2e6")                # around each emit's metadata f0
+            s21.where(power=-20).rows("frequency > 9e9", "I**2 + Q**2 > 1e-6")
+
+        Each expression is evaluated for every emit with its data columns (as arrays), its
+        parameters and metadata (as values) and ``np``, exactly like the expressions of
+        :mod:`~pylabtools.analysis.plot`, and must give True or False per row. Comparisons and
+        logic work element-wise as in :meth:`where`.
+
+        Every emit is kept, even if none of its rows are, with its parameters and metadata. The kept
+        rows keep their ``RecordRow`` numbers, so rows still line up across emits (for
+        ``average=True`` plots, say).
+
+        :param conditions: Expression strings.
+        :return: A new :class:`RecordView`.
+        """
+        for condition in conditions:
+            if not isinstance(condition, str):
+                raise TypeError(f"rows() conditions are expression strings such as \"frequency > 9e9\", "
+                                f"not {type(condition).__name__}.")
+        if not conditions or self.data.empty:
+            return self
+        shared = set(self.proc_params.columns) & set(self.meta.columns)
+        params = self.proc_params.to_dict("index")
+        meta = self.meta.to_dict("index")
+        keep = np.zeros(len(self.data.index), dtype=bool)
+        for key, positions in self.data.groupby(level=EMIT_INDEX, sort=False).indices.items():
+            names = Names(self.data.iloc[positions].droplevel(EMIT_INDEX), params[key], meta[key], shared)
+            inside = np.ones(len(positions), dtype=bool)
+            for condition in conditions:
+                inside &= _boolean(evaluate(condition, names, len(positions), what="rows()"), condition, "row")
+            keep[positions] = inside
+        return RecordView(self.name, self.data[keep], self.proc_params, self.meta)
+
+    def _emit_mask(self, condition):
+        if isinstance(condition, str):
+            shared = set(self.proc_params.columns) & set(self.meta.columns)
+            names = Names(self.data.iloc[:0], _columns_of(self.proc_params), _columns_of(self.meta), shared,
+                          with_data=False)
+            try:
+                result = evaluate(condition, names, len(self), what="where()")
+            except NameError as exc:
+                hint = "" if not self.columns else f" Data columns {self.columns} are selected with rows()."
+                raise NameError(f"{exc}{hint}") from None
+            return _boolean(result, condition, "emit")
+        if callable(condition):
+            raise TypeError("where() takes expression strings, e.g. where(\"setpoint < 0.1\"), not functions.")
+        mask = condition.to_numpy() if isinstance(condition, pd.Series) else np.asarray(condition)
+        if mask.dtype != bool or mask.shape != (len(self),):
+            raise TypeError(f"where() conditions are expression strings or boolean masks with one value per "
+                            f"emit ({len(self)}); got {type(condition).__name__} of dtype {mask.dtype} and "
+                            f"shape {mask.shape}.")
+        return mask
 
     def values(self, name, dropna=True):
         """ The distinct values of a procedure parameter or metadata item, sorted.
@@ -326,7 +393,7 @@ class RecordView:
             s21 = ds["s21"].align(ds["fridge"], by="nearest", tolerance="10s")
             s21 = ds["s21"].align(ds["fridge"], by="window", window=("30s", "0s"), agg="std")
             s21 = ds["s21"].align(ds["fridge"], agg=["mean", "std"])     # fridge_T5_mean, fridge_T5_std
-            s21.where(fridge_T5=lambda T: T < 0.05).reduce(...)
+            s21.where("fridge_T5 < 0.05").reduce(...)
 
         The statistics are added to the new view's metadata as ``<prefix><column>`` (by default
         ``<other record>_<column>``), plus ``<prefix>n``, the number of rows aggregated, and, for
@@ -411,9 +478,22 @@ def _view_from_merged(name, merged):
                       emits[meta].rename(columns=lambda c: c[len(_META):]))
 
 
-def _matches(series, condition):
+def _columns_of(table):
+    """ The columns of a per-emit table as Series over 0..n-1, for :class:`Names`. """
+    return {c: table[c].reset_index(drop=True) for c in table.columns}
+
+
+def _boolean(result, condition, per):
+    result = np.asarray(result)
+    if result.dtype != bool:
+        raise ValueError(f"{condition!r} must give True or False per {per}, not values of dtype {result.dtype}.")
+    return result
+
+
+def _matches(series, condition, key):
     if callable(condition):
-        return np.asarray(condition(series), dtype=bool)
+        raise TypeError(f"where({key}=...) takes a value or a list of values; write conditions as expression "
+                        f"strings, e.g. where(\"{key} < 0.1\").")
     if isinstance(condition, (list, tuple, set, frozenset, range, np.ndarray, pd.Index)):
         mask = np.zeros(len(series.index), dtype=bool)
         for value in condition:

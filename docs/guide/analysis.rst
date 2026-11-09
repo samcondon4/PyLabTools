@@ -36,15 +36,46 @@ Views are immutable; selections return new views, with the data rows subset to m
 
 .. code-block:: python
 
-    s21.group(-1)                              # the latest RecordGroup
-    s21.where(power=-20)                       # a parameter or metadata value
-    s21.where(power=[-20, -10], trace=0)       # any of several values; all conditions must hold
-    s21.where(setpoint=lambda s: s < 0.1)      # a function of the column
-    s21.where(lambda t: t.proc_power > -15)    # a function of the emit_table()
+    s21.group(-1)                                       # the latest RecordGroup
+    s21.where("setpoint < 0.1")                         # an expression
+    s21.where("0.01 < setpoint < 0.1 and trace == 0")   # all conditions must hold
+    s21.where("power in [-20, -10]", "trace != 1")
+    s21.where(power=-20)                                # a value, e.g. a variable in a loop
+    s21.where(power=[-20, -10], trace=0)                # any of several values
+
+Conditions are written as Python expressions of the parameter and metadata names and ``np``, the
+same as the plotting expressions below. They are evaluated for all emits at once, so comparisons
+and ``and`` / ``or`` / ``not`` / ``in [...]`` work element-wise, and chained comparisons such as
+``a < x < b`` work too. The keyword form matches values, which is handy for selecting by a Python
+variable without writing it into a string.
 
 Names are looked up among the procedure parameters and then the metadata. If a name is in both,
-prefix it: ``where(proc_power=-20)`` or ``where(meta_power=-19.5)``. Float columns are compared with
-a relative tolerance of 1e-9, so ``0.15 - 0.05`` matches a stored ``0.1``.
+prefix it: ``where("proc_power > -15")`` or ``where(meta_power=-19.5)``. Floats are compared with
+a relative tolerance of 1e-9, both by ``==`` / ``in`` and by the keywords, so ``0.15 - 0.05``
+matches a stored ``0.1``. A boolean array or Series with one value per emit also works as a
+condition, e.g. one computed with ``reduce()``:
+
+.. code-block:: python
+
+    depth = s21.reduce(lambda d: d.s21.min(), name="depth")["depth"]
+    s21.where(depth < -3)
+
+Selecting rows within emits
+---------------------------
+
+:meth:`~pylabtools.analysis.RecordView.rows` keeps only the data rows that meet the conditions,
+inside every emit, e.g. a frequency window of every VNA trace:
+
+.. code-block:: python
+
+    s21.rows("9e9 < frequency < 10e9")
+    s21.rows("abs(frequency - f0) < 2e6")              # around each emit's own metadata f0
+    s21.where(power=-20).rows("frequency > 9e9", "I**2 + Q**2 > 1e-6")
+
+The expressions see each emit's data columns as arrays, and its parameters and metadata as values,
+so a condition can depend on the emit. Every emit is kept with its parameters and metadata, even if
+it has no rows left, and the kept rows keep their ``RecordRow`` numbers, so they still line up
+across emits when plotting with ``average=True``.
 
 :meth:`~pylabtools.analysis.RecordView.values` lists the distinct values of a parameter or metadata
 item in a view, sorted, with the same name lookup. Floats that ``where()`` treats as equal are
@@ -91,7 +122,7 @@ metadata of the returned view, so they work with ``where()``, ``emits()`` and ``
 
     s21 = ds["s21"].align(ds["fridge"])               # mean of each fridge column per RecordGroup
     s21.meta[["fridge_T5", "fridge_n"]]
-    s21.where(fridge_T5=lambda T: T < 0.05).reduce(...)
+    s21.where("fridge_T5 < 0.05").reduce(...)
 
 ``by`` chooses which rows of the other record belong to an emit:
 

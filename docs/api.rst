@@ -85,8 +85,8 @@ Analysis
     :members: records, record
 
 .. autoclass:: pylabtools.analysis.RecordView
-    :members: groups, keys, columns, params, emit_table, to_frame, group, where, values, emits, reduce,
-        align
+    :members: groups, keys, columns, params, emit_table, to_frame, group, where, rows, values, emits,
+        reduce, align
 
 .. autoclass:: pylabtools.analysis.Emit
     :members: key, timestamp

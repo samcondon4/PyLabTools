@@ -13,7 +13,6 @@ figure when no ``ax`` is given.
 """
 import numbers
 import warnings
-from collections.abc import Mapping
 
 import numpy as np
 import pandas as pd
@@ -24,10 +23,12 @@ from matplotlib import colors as mcolors
 from matplotlib.cm import ScalarMappable
 
 from ..recorders.base import RECORD_ROW
+from .expressions import Names as _Names
+from .expressions import evaluate as _evaluate
+from .expressions import run as _run
 
 __all__ = ["AveragingWarning", "lineplot", "scatterplot"]
 
-_PROC, _META = "proc_", "meta_"
 _COLOR_KWARGS = ("color", "c", "colors")
 
 
@@ -195,71 +196,13 @@ def _average(emits, x, y, value, shared):
     return _evaluate(x, names, n), _evaluate(y, names, n), same_x
 
 
-class _Names(Mapping):
-    """ Names available to an expression: data columns, ``np``, then parameters and metadata. """
-
-    def __init__(self, data, params, meta, shared, with_data=True):
-        self.data, self.params, self.meta, self.shared = data, params, meta, shared
-        self.with_data = with_data
-
-    def __getitem__(self, key):
-        if self.with_data and key in self.data.columns:
-            return self.data[key].to_numpy()
-        if key.startswith(_PROC) and key[len(_PROC):] in self.params:
-            return self.params[key[len(_PROC):]]
-        if key.startswith(_META) and key[len(_META):] in self.meta:
-            return self.meta[key[len(_META):]]
-        if key in self.shared:
-            raise NameError(f"{key!r} is both a procedure parameter and metadata; use 'proc_{key}' or "
-                            f"'meta_{key}'.")
-        if key in self.params:
-            return self.params[key]
-        if key in self.meta:
-            return self.meta[key]
-        raise KeyError(key)
-
-    def __iter__(self):
-        columns = list(self.data.columns) if self.with_data else []
-        return iter(columns + list(self.params) + list(self.meta))
-
-    def __len__(self):
-        return len(list(iter(self)))
-
-    def describe(self):
-        columns = f"data columns {list(self.data.columns)}, " if self.with_data else ""
-        return f"{columns}parameters {list(self.params)}, metadata {list(self.meta)}"
-
-
-_GLOBALS = {"np": np, "numpy": np}
-
-
-def _evaluate(expression, names, n_rows):
-    """ Evaluate a column name or expression for one emit, as a float array of ``n_rows``. """
-    if names.with_data and expression in names.data.columns:
-        return names.data[expression].to_numpy()
-    try:
-        result = eval(expression, _GLOBALS, names)  # noqa: S307  (the user's own analysis expression)
-    except NameError as exc:
-        raise NameError(f"{expression!r}: {exc}. Available: {names.describe()}.") from None
-    result = np.asarray(result.to_numpy() if isinstance(result, pd.Series) else result)
-    if result.ndim == 0:
-        return np.full(n_rows, result.item())
-    if result.shape != (n_rows,):
-        raise ValueError(f"{expression!r} gave shape {result.shape}, but the emit has {n_rows} rows.")
-    return result
-
-
 def _color_value(emit, color_by, shared):
     names = _Names(emit.data, emit.params, emit.meta, shared, with_data=False)
     try:
         return names[color_by]
     except KeyError:
         pass
-    try:
-        value = eval(color_by, _GLOBALS, names)  # noqa: S307
-    except NameError as exc:
-        raise NameError(f"color_by {color_by!r}: {exc}. color_by can use {names.describe()}.") from None
-    value = np.asarray(value)
+    value = np.asarray(_run(color_by, names, what="color_by"))
     if value.ndim != 0:
         raise ValueError(f"color_by {color_by!r} must give one value per emit, not shape {value.shape}.")
     return value.item()
