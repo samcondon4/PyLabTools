@@ -294,6 +294,44 @@ def test_align_by_window(ds):
     assert s21.meta.loc[(0, 3), "fridge_n"] == 2
 
 
+@pytest.mark.parametrize("by, kwargs", [("group", {}), ("nearest", {}), ("window", {"window": 9})])
+def test_align_with_a_list_of_aggregations(ds, by, kwargs):
+    s21, fridge = ds["s21"], ds["fridge"]
+
+    def spread(values):
+        return values.max() - values.min()
+
+    out = s21.align(fridge, by=by, agg=["mean", "std", spread], columns=["T5", "T1"], **kwargs)
+    new = [c for c in out.meta.columns if c not in s21.meta.columns]
+    expected = [f"fridge_{c}_{a}" for c in ["T5", "T1"] for a in ["mean", "std", "spread"]] + ["fridge_n"]
+    if by == "nearest":
+        expected.append("fridge_dt")
+    assert new == expected
+    # - the same numbers as one aggregation at a time - #
+    for name, agg in [("mean", "mean"), ("std", "std"), ("spread", spread)]:
+        single = s21.align(fridge, by=by, agg=agg, columns=["T5", "T1"], **kwargs).meta
+        for column in ["T5", "T1"]:
+            pd.testing.assert_series_equal(out.meta[f"fridge_{column}_{name}"], single[f"fridge_{column}"],
+                                           check_names=False)
+    assert out.meta["fridge_n"].dtype == np.int64
+
+
+def test_align_list_without_matches(ds):
+    s21 = ds["s21"].align(ds["fridge"], by="nearest", tolerance=1, agg=["mean", "max"], columns="T5")
+    assert s21.meta[["fridge_T5_mean", "fridge_T5_max"]].isna().all().all()
+    assert s21.meta["fridge_n"].tolist() == [0] * 8
+
+
+def test_align_list_errors(ds):
+    s21, fridge = ds["s21"], ds["fridge"]
+    with pytest.raises(ValueError, match="cannot name"):
+        s21.align(fridge, agg=["mean", lambda v: v.max()])
+    with pytest.raises(ValueError, match="more than once"):
+        s21.align(fridge, agg=["mean", "mean"])
+    with pytest.raises(ValueError, match="empty list"):
+        s21.align(fridge, agg=[])
+
+
 def test_align_errors(ds):
     s21, fridge = ds["s21"], ds["fridge"]
     with pytest.raises(ValueError, match="needs a window"):

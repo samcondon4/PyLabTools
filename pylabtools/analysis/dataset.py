@@ -325,6 +325,7 @@ class RecordView:
             s21 = ds["s21"].align(ds["fridge"])                          # mean over each RecordGroup
             s21 = ds["s21"].align(ds["fridge"], by="nearest", tolerance="10s")
             s21 = ds["s21"].align(ds["fridge"], by="window", window=("30s", "0s"), agg="std")
+            s21 = ds["s21"].align(ds["fridge"], agg=["mean", "std"])     # fridge_T5_mean, fridge_T5_std
             s21.where(fridge_T5=lambda T: T < 0.05).reduce(...)
 
         The statistics are added to the new view's metadata as ``<prefix><column>`` (by default
@@ -337,7 +338,10 @@ class RecordView:
             rows of the emit of ``other`` nearest in time. ``"window"``: the rows of the emits of
             ``other`` within ``window`` of this emit.
         :param agg: Aggregation applied to each column: a name such as ``"mean"``, ``"median"``,
-            ``"std"``, ``"min"``, ``"max"``, or a function of a Series.
+            ``"std"``, ``"min"``, ``"max"``, or a function of a Series. A list, e.g.
+            ``["mean", "std"]``, applies each one and names the columns
+            ``<prefix><column>_<agg>`` (``fridge_T5_mean``, ``fridge_T5_std``); functions in a list
+            are named by their ``__name__``, so define them with ``def``.
         :param columns: Columns of ``other`` to aggregate (default: all numeric columns).
         :param window: For ``by="window"``: a time span ``w`` (the emits within ``w`` either side) or
             a pair ``(before, after)``. Numbers are seconds; strings such as ``"30s"`` and
@@ -358,10 +362,11 @@ class RecordView:
             if unknown:
                 raise KeyError(f"{other.name!r} has no columns {unknown}; columns are {other.columns}.")
         values = other.data[columns]
+        agg = _aggregations(agg)
 
         if by == "group":
             grouped = values.groupby(level=RECORD_GROUP)
-            stats = grouped.agg(agg).assign(n=grouped.size())
+            stats = _aggregate(grouped, agg, columns).assign(n=grouped.size())
             groups = self.keys.get_level_values(RECORD_GROUP)
             stats = stats.reindex(groups).set_axis(self.keys)
         elif by == "nearest":
@@ -450,10 +455,47 @@ def _emit_times(view):
     return view.meta[TIMESTAMP]
 
 
+def _aggregations(agg):
+    """ ``agg`` as given for a single aggregation, or a list of ``(label, agg)`` pairs for a list. """
+    if not isinstance(agg, (list, tuple)):
+        return agg
+    if not agg:
+        raise ValueError("align() agg is an empty list.")
+    pairs = []
+    for a in agg:
+        label = a if isinstance(a, str) else getattr(a, "__name__", None)
+        if not label or label == "<lambda>":
+            raise ValueError(f"align() cannot name the aggregation {a!r} in a list; use a function "
+                             "defined with def, whose name becomes the column suffix.")
+        pairs.append((label, a))
+    labels = [label for label, _ in pairs]
+    duplicates = sorted({label for label in labels if labels.count(label) > 1})
+    if duplicates:
+        raise ValueError(f"align() agg lists {duplicates} more than once.")
+    return pairs
+
+
+def _stat_names(columns, agg):
+    """ Column names of the statistics: ``<column>`` or, for a list, ``<column>_<agg>``. """
+    if not isinstance(agg, list):
+        return list(columns)
+    return [f"{c}_{label}" for c in columns for label, _ in agg]
+
+
+def _aggregate(obj, agg, columns):
+    """ Apply ``agg`` (see :func:`_aggregations`) to a DataFrame (-> Series) or a GroupBy (-> DataFrame). """
+    if not isinstance(agg, list):
+        return obj.agg(agg)
+    results = {label: obj.agg(a) for label, a in agg}
+    combined = {f"{c}_{label}": results[label][c] for c in columns for label, _ in agg}
+    return pd.DataFrame(combined) if isinstance(obj, pd.core.groupby.GroupBy) else pd.Series(combined)
+
+
 def _agg_rows(frame, agg):
     """ Aggregate rows into one Series of statistics plus the row count ``n``. """
-    stats = frame.agg(agg) if len(frame.index) else pd.Series(np.nan, index=frame.columns)
-    return pd.concat([pd.Series(stats, index=frame.columns), pd.Series({"n": len(frame.index)})])
+    names = _stat_names(frame.columns, agg)
+    stats = _aggregate(frame, agg, frame.columns) if len(frame.index) else pd.Series(np.nan, index=names)
+    return pd.concat([pd.Series(stats, index=names), pd.Series({"n": len(frame.index)})])
 
 
 def _align_nearest(view, other, values, agg, tolerance):

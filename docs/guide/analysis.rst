@@ -107,7 +107,16 @@ metadata of the returned view, so they work with ``where()``, ``emits()`` and ``
 
 ``agg`` is the statistic (``"mean"``, ``"median"``, ``"std"``, ``"min"``, ``"max"`` or a function of a
 Series), ``columns`` limits the aggregated columns (default: all numeric ones), and ``prefix``
-changes the new column names (default ``<record>_``). ``<prefix>n`` is the number of rows each
+changes the new column names (default ``<record>_``). A list of statistics adds one column per
+statistic, named ``<prefix><column>_<agg>``:
+
+.. code-block:: python
+
+    s21 = ds["s21"].align(ds["fridge"], agg=["mean", "std"], columns=["T5"])
+    s21.meta[["fridge_T5_mean", "fridge_T5_std", "fridge_n"]]
+
+Functions in such a list are named by their ``__name__``, so define them with ``def`` rather than
+``lambda``. ``<prefix>n`` is the number of rows each
 statistic was computed from. Times are the ``timestamp`` metadata of each emit, i.e. when it was
 emitted.
 
