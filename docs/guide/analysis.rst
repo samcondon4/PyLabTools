@@ -327,3 +327,63 @@ reducing any bias. A linear slope of the background amplitude is not removed by 
 An inline (``"transmission"``) resonator has its off-resonant point at the origin, so it is
 normalised to the resonance point instead (``S21(fr) = 1``), and its circle constrains a delay
 refinement only weakly; see :func:`~pylabtools.analysis.resonator.calibrate_constant_scaling`.
+
+Fitting the resonator parameters
+--------------------------------
+
+:func:`~pylabtools.analysis.resonator.fit_res_params` fits calibrated traces, whose off-resonant
+point is 1: a circle, the phase about its centre (``fr``, ``Ql``), and from the circle the coupling
+and internal quality factors of the ``geometry``'s model, with the impedance mismatch as a complex
+coupling ``1/Qc_complex = exp(-i*phi)/|Qc|`` (Probst et al. 2015):
+
+.. code-block:: python
+
+    from pylabtools.analysis.resonator import fit_res_params
+
+    cal = calibrate_cable_delay(vna, fit_rows="abs(frequency - f0) > 5 * f0 / Ql")
+    cal = calibrate_constant_scaling(cal, "hanger", refine_cable_delay=True, weights="arc_length")
+    cal = fit_res_params(cal, "hanger", weights="arc_length")
+    cal.fits["res_params"][["fr", "Ql", "Qc", "Qi", "phi"]]
+
+The circle's diameter is ``Ql/|Qc|`` for a hanger and ``2*Ql/|Qc|`` for a reflection; its centre
+gives ``phi``. ``Qc = |Qc|/cos(phi)`` and ``1/Qi = 1/Ql - cos(phi)/|Qc|`` are the diameter-corrected
+values. An inline (``"transmission"``) resonator normalised at its resonance gives only ``fr`` and
+``Ql``.
+
+By default (``least_squares=True``) the circle-fit values start a final least-squares fit of the
+full complex model, with a remaining scale ``A``, phase ``alpha`` and delay ``delta_tau`` of the
+environment free again, and each value gets an uncertainty ``<name>_err`` from the fit's
+covariance. Because the environment is refitted with the resonator, the calibration's errors and
+their correlations with ``Qc``, ``Qi`` and ``phi`` are included; ``A``, ``alpha`` and
+``delta_tau`` show how far the calibration was off. The noise is estimated from the residuals
+(``sigma``), so the uncertainties are statistical: they assume independent noise of equal size on
+every point and do not cover a background the model does not describe. With
+``weights="arc_length"`` the final fit is weighted too, with the matching (sandwich) covariance.
+
+.. code-block:: python
+
+    table = cal.fits["res_params"]
+    table[["Qi", "Qi_err", "Qc", "Qc_err", "phi", "phi_err", "A", "delta_tau"]]
+
+The data are not changed; the results are a table in ``fits["res_params"]``, one row per
+emit, so they can be joined to the swept parameters:
+
+.. code-block:: python
+
+    results = cal.emit_table().join(cal.fits["res_params"])
+
+:func:`~pylabtools.analysis.resonator.plot_res_params` plots them against a swept parameter: the
+quality factors on top, one colour each, and ``fr`` below, with error bars:
+
+.. code-block:: python
+
+    from pylabtools.analysis.resonator import plot_res_params
+
+    fig, axes = plot_res_params(cal, x="power", xlabel="Power (dBm)")
+    plot_res_params(cal, x="setpoint * 1e3", qs=("Qi", "Qc"), xlabel="T (mK)")
+    plot_res_params(cal.where("ls_success"), x="power", qs="Qi")
+    axes["Q"].set_yscale("log")
+
+``x`` is a parameter, metadata item or fit result, or an expression of them; ``qs`` picks any of
+``"Ql"``, ``"Qc"`` and ``"Qi"`` (default all three).
+

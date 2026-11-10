@@ -105,9 +105,11 @@ Resonators
 
 .. autofunction:: pylabtools.analysis.resonator.calibrate_cable_delay
 .. autofunction:: pylabtools.analysis.resonator.calibrate_constant_scaling
+.. autofunction:: pylabtools.analysis.resonator.fit_res_params
 .. autofunction:: pylabtools.analysis.resonator.arc_length_weights
 .. autoexception:: pylabtools.analysis.resonator.CalibrationWarning
 .. autofunction:: pylabtools.analysis.resonator.plot_res_data
+.. autofunction:: pylabtools.analysis.resonator.plot_res_params
 
 Converting 0.9 files
 ====================

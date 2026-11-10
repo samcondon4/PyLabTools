@@ -148,7 +148,7 @@ def _check_trace(view):
 
 
 # - constant scaling ------------------------------------------------------------------------------ #
-_CIRCLE_MIN_ROWS = 5                 # - a circle needs 3 points; the phase fit 3 parameters more - #
+CIRCLE_MIN_ROWS = 5                 # - a circle needs 3 points; the phase fit 3 parameters more - #
 _DELAY_TOLERANCE = 1e-6              # - rad: refined until the correction turns the trace by less - #
 _DELAY_MAX_PASSES = 20
 
@@ -280,14 +280,11 @@ def _scale_trace(frequency, signal, geometry, refine, weights):
     """ Steps 1-3 for one trace; NaN results if a step fails. The delay is refined unweighted; with
     ``weights="arc_length"``, the circle and phase fits run unweighted for ``fr`` and ``Ql``, then
     again with the weights these give. """
-    usable = np.isfinite(frequency) & np.isfinite(signal)
-    f, z = frequency[usable], signal[usable]
-    order = np.argsort(f, kind="stable")
-    f, z = f[order], z[order]
+    f, z = trace_points(frequency, signal)
     result = dict.fromkeys(["delay_correction", "xc", "yc", "r", "circle_rms", "theta0", "Ql", "fr", "a", "alpha"],
                            np.nan)
     result.update(n=len(f), at_bound=False)
-    if len(f) < _CIRCLE_MIN_ROWS or np.ptp(f) == 0:
+    if len(f) < CIRCLE_MIN_ROWS or np.ptp(f) == 0:
         return result
 
     # - 1a. the delay refinement: unweighted, as the off-resonant arms show a delay error best - #
@@ -296,10 +293,8 @@ def _scale_trace(frequency, signal, geometry, refine, weights):
         return result
     z = z * np.exp(2j * np.pi * f * delta_tau)
 
-    # - 1b-2. circle and phase fits on the corrected trace, then weighted if asked - #
-    fit = _circle_and_phase(f, z, None)
-    if fit is not None and weights == "arc_length":
-        fit = _circle_and_phase(f, z, arc_length_weights(f, fit["fr"], fit["Ql"]))
+    # - 1b-2. circle and phase fits on the corrected trace, weighted if asked - #
+    fit = circle_and_phase(f, z, weights)
     if fit is None:
         return result
     fit.update(delay_correction=delta_tau, at_bound=at_bound)
@@ -309,6 +304,24 @@ def _scale_trace(frequency, signal, geometry, refine, weights):
     point = centre + fit["r"] * np.exp(1j * (fit["theta0"] if geometry == "transmission" else fit["theta0"] + np.pi))
     result.update(fit, a=float(np.abs(point)), alpha=float(np.angle(point)))
     return result
+
+
+def trace_points(frequency, signal):
+    """ The rows with a finite frequency and signal, sorted by frequency: ``(f, z)``. """
+    usable = np.isfinite(frequency) & np.isfinite(signal)
+    f, z = frequency[usable], signal[usable]
+    order = np.argsort(f, kind="stable")
+    return f[order], z[order]
+
+
+def circle_and_phase(f, z, weights):
+    """ The circle and phase fits of one trace, as a dict, or None if a fit fails. With
+    ``weights="arc_length"`` they are run unweighted for ``fr`` and ``Ql``, then again with the
+    :func:`arc_length_weights` these give. """
+    fit = _circle_and_phase(f, z, None)
+    if fit is not None and weights == "arc_length":
+        fit = _circle_and_phase(f, z, arc_length_weights(f, fit["fr"], fit["Ql"]))
+    return fit
 
 
 def _circle_and_phase(f, z, w):
@@ -324,7 +337,9 @@ def _circle_and_phase(f, z, w):
     if phase is None:
         return None
     theta0, ql, fr = phase
-    return dict(xc=xc, yc=yc, r=r, circle_rms=_circle_rms(z, xc, yc, r, w), theta0=theta0, Ql=ql, fr=fr)
+    # - Ql is reported positive; orientation (+1/-1) keeps the direction the trace circles in - #
+    return dict(xc=xc, yc=yc, r=r, circle_rms=_circle_rms(z, xc, yc, r, w), theta0=theta0, Ql=abs(ql), fr=fr,
+                orientation=float(np.sign(ql)))
 
 
 def arc_length_weights(frequency, fr, ql):
@@ -414,7 +429,7 @@ def _refine_delay(f, z):
 def _fit_centred_phase(f, z, w=None):
     """ ``(theta0, Ql, fr)`` fitted to the angle of ``z`` (the points about the circle's centre),
     ``theta = theta0 + 2*arctan(2*Ql*(1 - f/fr))``, or None. ``f`` is sorted; ``w`` are optional
-    point weights on the squared residuals. """
+    point weights on the squared residuals. ``Ql`` is negative for a trace circling the other way. """
     root_w = 1.0 if w is None else np.sqrt(w)
     angle = np.angle(z)
     unwrapped = np.unwrap(angle)
@@ -439,7 +454,7 @@ def _fit_centred_phase(f, z, w=None):
         params.update(zip(free, fit.x))
     if params["fr"] <= 0 or params["ql"] == 0:
         return None
-    return float(np.angle(np.exp(1j * params["theta0"]))), float(abs(params["ql"])), float(params["fr"])
+    return float(np.angle(np.exp(1j * params["theta0"]))), float(params["ql"]), float(params["fr"])
 
 
 def _phase_guess(f, unwrapped):
