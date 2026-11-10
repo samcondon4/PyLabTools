@@ -254,7 +254,9 @@ figure:
     plot_res_data(window, color_by="setpoint", average=True)
 
 It takes the arguments of :func:`~pylabtools.analysis.plot.lineplot` except ``x`` and ``y``, with
-one colour bar or legend for the whole figure. ``axes=`` draws onto three existing Axes,
+one colour bar or legend for the whole figure. Frequencies are plotted in GHz; ``freq_unit="MHz"``
+(or ``"kHz"``, ``"Hz"``) changes that, here and in
+:func:`~pylabtools.analysis.resonator.plot_res_params`. ``axes=`` draws onto three existing Axes,
 ``scatter_kwargs`` styles the I-Q points, and other keyword arguments style the lines. With
 ``average=True``, I and Q are averaged row by row; only differing frequencies are warned about.
 
@@ -385,5 +387,6 @@ quality factors on top, one colour each, and ``fr`` below, with error bars:
     axes["Q"].set_yscale("log")
 
 ``x`` is a parameter, metadata item or fit result, or an expression of them; ``qs`` picks any of
-``"Ql"``, ``"Qc"`` and ``"Qi"`` (default all three).
+``"Ql"``, ``"Qc"`` and ``"Qi"`` (default all three). ``fr``, and an ``x`` of ``"fr"``, are plotted
+in ``freq_unit`` (GHz by default).
 

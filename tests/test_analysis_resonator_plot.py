@@ -58,7 +58,7 @@ def test_panels(vna):
     assert len(fig.axes) == 3                                   # - no colour bar without color_by - #
     assert len(axes["mag"].lines) == len(axes["phase"].lines) == len(axes["iq"].collections) == 4
     i, q = hanger(F)
-    np.testing.assert_allclose(axes["mag"].lines[0].get_xdata(), F)
+    np.testing.assert_allclose(axes["mag"].lines[0].get_xdata(), F / 1e9)        # - GHz by default - #
     np.testing.assert_allclose(axes["mag"].lines[0].get_ydata(), 20 * np.log10(np.hypot(i, q)))
     phase = axes["phase"].lines[0].get_ydata()
     np.testing.assert_allclose(phase, np.unwrap(np.arctan2(q, i)))
@@ -67,7 +67,7 @@ def test_panels(vna):
     assert axes["iq"].get_aspect() == 1.0
     assert axes["mag"].get_shared_x_axes().joined(axes["mag"], axes["phase"])
     assert (axes["phase"].get_xlabel(), axes["mag"].get_ylabel(), axes["phase"].get_ylabel()) == \
-        ("frequency", "Magnitude (dB)", "Phase (rad)")
+        ("frequency (GHz)", "Magnitude (dB)", "Phase (rad)")
     assert (axes["iq"].get_xlabel(), axes["iq"].get_ylabel()) == ("I", "Q")
     assert fig.get_suptitle() == ""
 
@@ -105,7 +105,7 @@ def test_average(vna):
 def test_average_warns_only_for_differing_frequencies():
     # - warnings are errors in this test suite: matching frequencies give none, even for the I-Q panel - #
     plot_res_data(res_view(), color_by="power", average=True)
-    with pytest.warns(AveragingWarning, match="'frequency'") as record:
+    with pytest.warns(AveragingWarning, match="'frequency") as record:
         plot_res_data(res_view(shift=1e3), color_by="power", average=True)
     assert len(record) == 1                                    # - once, not once per panel - #
     assert record[0].filename == __file__                      # - points at the caller - #
@@ -176,9 +176,9 @@ def test_plot_res_params_layout():
     qi = sorted(tuple(c.get_offsets()[0]) for c in scatter_points(axes["Q"]) if c.get_label() == "Qi (internal)")
     assert qi == sorted(zip(view.proc_params["power"], [2e4, 2.4e4, 2.8e4, 3.2e4]))
     fr = sorted(c.get_offsets()[0][1] for c in scatter_points(axes["fr"]))
-    assert fr == pytest.approx([6e9, 6e9 + 1e3, 6e9 + 2e3, 6e9 + 3e3])
+    assert fr == pytest.approx([6, 6 + 1e-6, 6 + 2e-6, 6 + 3e-6], rel=1e-12)     # - GHz - #
     assert (axes["fr"].get_xlabel(), axes["fr"].get_ylabel(), axes["Q"].get_ylabel()) == \
-        ("Power (dBm)", "fr (Hz)", "Quality factor")
+        ("Power (dBm)", "fr (GHz)", "Quality factor")
     assert fig.get_suptitle() == "Fits"
 
 
@@ -187,7 +187,7 @@ def test_plot_res_params_error_bars():
     bars = [c for c in axes["fr"].collections if isinstance(c, LineCollection)]
     assert len(bars) == 1
     lengths = sorted(np.ptp(segment[:, 1]) for segment in bars[0].get_segments())
-    assert lengths == pytest.approx([20, 40, 60, 80])                   # - 2 * fr_err - #
+    assert lengths == pytest.approx([20e-9, 40e-9, 60e-9, 80e-9])       # - 2 * fr_err, in GHz - #
     _, axes = plot_res_params(fitted_view(), x="power", errors=False)
     assert not any(isinstance(c, LineCollection) for c in axes["fr"].collections)
 
@@ -225,3 +225,33 @@ def test_plot_res_params_errors():
         plot_res_params(view, x="power", axes=plt.subplots(1, 3)[1])
     with pytest.raises(ValueError, match="no emits"):
         plot_res_params(view.where("power > 100"), x="power")
+
+
+def test_frequency_units():
+    vna = res_view()
+    _, axes = plot_res_data(vna, freq_unit="MHz")
+    np.testing.assert_allclose(axes["phase"].lines[0].get_xdata(), F / 1e6)
+    assert axes["phase"].get_xlabel() == "frequency (MHz)"
+    _, axes = plot_res_data(vna, freq_unit="Hz", xlabel="f")
+    np.testing.assert_allclose(axes["mag"].lines[0].get_xdata(), F)
+    assert axes["phase"].get_xlabel() == "f"
+    np.testing.assert_allclose(axes["iq"].collections[0].get_offsets()[:, 0], hanger(F)[0])   # - I, unscaled - #
+
+    fitted = fitted_view()
+    _, axes = plot_res_params(fitted, x="power", freq_unit="MHz")
+    assert axes["fr"].get_ylabel() == "fr (MHz)"
+    assert sorted(c.get_offsets()[0][1] for c in scatter_points(axes["fr"]))[0] == pytest.approx(6000)
+    bars = [c for c in axes["fr"].collections if isinstance(c, LineCollection)][0]
+    assert sorted(np.ptp(seg[:, 1]) for seg in bars.get_segments()) == pytest.approx([20e-6, 40e-6, 60e-6, 80e-6])
+    # - an x that is a frequency is scaled too, with its error bars - #
+    _, axes = plot_res_params(fitted, x="fr", qs="Qi")
+    assert axes["fr"].get_xlabel() == "fr (GHz)"
+    xs = sorted(c.get_offsets()[0][0] for c in scatter_points(axes["Q"]))
+    assert xs == pytest.approx([6, 6 + 1e-6, 6 + 2e-6, 6 + 3e-6], rel=1e-12)
+    bars = [c for c in axes["Q"].collections if isinstance(c, LineCollection)]
+    assert any(np.ptp(seg[:, 0]) == pytest.approx(20e-9) for c in bars for seg in c.get_segments())
+    with pytest.raises(ValueError, match="freq_unit must be one of"):
+        plot_res_data(vna, freq_unit="THz")
+    with pytest.raises(ValueError, match="freq_unit must be one of"):
+        plot_res_params(fitted, x="power", freq_unit="mhz")
+

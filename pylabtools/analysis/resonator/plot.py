@@ -29,11 +29,24 @@ __all__ = ["plot_res_data", "plot_res_params"]
 MAGNITUDE = "20*np.log10(np.hypot(I, Q))"
 PHASE = "np.unwrap(np.arctan2(Q, I))"
 PANELS = ("mag", "phase", "iq")
+FREQUENCY_UNITS = {"Hz": 1.0, "kHz": 1e3, "MHz": 1e6, "GHz": 1e9}
+FREQUENCY_NAMES = ("frequency", "fr")      # - a plotted name that is a frequency - #
+
+
+def _frequency_scale(unit):
+    if unit not in FREQUENCY_UNITS:
+        raise ValueError(f"freq_unit must be one of {list(FREQUENCY_UNITS)}, not {unit!r}.")
+    return FREQUENCY_UNITS[unit]
+
+
+def _in_unit(name, scale):
+    """ The expression plotting frequency ``name`` in the unit of ``scale`` Hz. """
+    return name if scale == 1.0 else f"{name} / {scale!r}"
 
 
 def plot_res_data(view, color_by=None, average=False, xaverage_silent=False, axes=None, xlabel=None,
                   title=None, cmap="viridis", norm=None, colorbar=True, clabel=None, legend=True,
-                  scatter_kwargs=None, **kwargs):
+                  scatter_kwargs=None, freq_unit="GHz", **kwargs):
     """ Plot resonator traces as magnitude and phase against frequency, and Q against I.
 
     Every emit of ``view`` must have the data columns ``frequency``, ``I`` and ``Q``. The panels
@@ -41,7 +54,7 @@ def plot_res_data(view, color_by=None, average=False, xaverage_silent=False, axe
     :func:`~pylabtools.analysis.plot.scatterplot`:
 
     ``"mag"``
-        ``20*np.log10(np.hypot(I, Q))`` (dB) against frequency.
+        ``20*np.log10(np.hypot(I, Q))`` (dB) against frequency, in ``freq_unit`` (GHz by default).
     ``"phase"``
         ``np.unwrap(np.arctan2(Q, I))`` (rad) against frequency, unwrapped along each trace.
     ``"iq"``
@@ -64,10 +77,12 @@ def plot_res_data(view, color_by=None, average=False, xaverage_silent=False, axe
     :param axes: Optional three Axes to draw on, as a mapping with the keys ``"mag"``, ``"phase"``
         and ``"iq"`` or a sequence in that order. By default a new figure is made, with the
         magnitude above the phase (sharing the frequency axis) and the I-Q plane beside them.
-    :param xlabel: Frequency axis label (default ``"frequency"``).
+    :param xlabel: Frequency axis label (default ``"frequency (GHz)"``, with ``freq_unit``).
     :param title: Optional figure title (default: none).
     :param scatter_kwargs: Keyword arguments for :meth:`~matplotlib.axes.Axes.scatter` in the I-Q
         panel (default ``{"s": 6}``).
+    :param freq_unit: Unit of the frequency axis: ``"GHz"`` (default), ``"MHz"``, ``"kHz"`` or
+        ``"Hz"``.
     :param kwargs: Passed to :meth:`~matplotlib.axes.Axes.plot` for the magnitude and phase lines.
     :return: ``(fig, axes)``, where ``axes`` is a dict with the keys ``"mag"``, ``"phase"`` and
         ``"iq"``.
@@ -76,6 +91,7 @@ def plot_res_data(view, color_by=None, average=False, xaverage_silent=False, axe
     ``xaverage_silent``, ``cmap``, ``norm``, ``colorbar``, ``clabel`` and ``legend``.
     """
     _check_trace(view)
+    frequency = _in_unit("frequency", _frequency_scale(freq_unit))
     fig, axes = _axes(axes)
     numeric = _numeric_colors(view, color_by) if len(view) else None
     if numeric:
@@ -83,13 +99,13 @@ def plot_res_data(view, color_by=None, average=False, xaverage_silent=False, axe
         cmap = matplotlib.colormaps[cmap] if isinstance(cmap, str) else cmap
     common = dict(color_by=color_by, average=average, cmap=cmap, norm=norm, colorbar=False, clabel=clabel)
     scatter_kwargs = {"s": 6} if scatter_kwargs is None else dict(scatter_kwargs)
-    xlabel = "frequency" if xlabel is None else xlabel
+    xlabel = f"frequency ({freq_unit})" if xlabel is None else xlabel
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        lineplot(view, x="frequency", y=MAGNITUDE, ax=axes["mag"], xlabel="", ylabel="Magnitude (dB)",
+        lineplot(view, x=frequency, y=MAGNITUDE, ax=axes["mag"], xlabel="", ylabel="Magnitude (dB)",
                  legend=legend, xaverage_silent=xaverage_silent, **common, **kwargs)
-        lineplot(view, x="frequency", y=PHASE, ax=axes["phase"], xlabel=xlabel, ylabel="Phase (rad)",
+        lineplot(view, x=frequency, y=PHASE, ax=axes["phase"], xlabel=xlabel, ylabel="Phase (rad)",
                  legend=False, xaverage_silent=xaverage_silent, **common, **kwargs)
         scatterplot(view, x="I", y="Q", ax=axes["iq"], xlabel="I", ylabel="Q", legend=False,
                     xaverage_silent=True, **common, **scatter_kwargs)
@@ -139,7 +155,7 @@ _Q_LABELS = {"Ql": "Ql (loaded)", "Qc": "Qc (coupling)", "Qi": "Qi (internal)"}
 
 
 def plot_res_params(view, x, qs=Q_VALUES, fit="res_params", errors=True, axes=None, xlabel=None, title=None,
-                    errorbar_kwargs=None, **kwargs):
+                    errorbar_kwargs=None, freq_unit="GHz", **kwargs):
     """ Plot the fitted quality factors (top) and resonance frequency (bottom) against a swept
     parameter, one point per emit, with error bars.
 
@@ -155,7 +171,8 @@ def plot_res_params(view, x, qs=Q_VALUES, fit="res_params", errors=True, axes=No
     row per emit, holding that emit's row of ``view.fits[fit]``, so ``x`` can be a procedure
     parameter, metadata item or fit result, or an expression of them (e.g. ``"setpoint * 1e3"``).
     The quality factors share the top axes, one colour each, with a legend; ``fr`` is on the bottom
-    axes, which share ``x`` with the top. With ``errors``, error bars come from the ``<name>_err``
+    axes, in ``freq_unit`` (GHz by default), which share ``x`` with the top. An ``x`` of exactly
+    ``"fr"`` or ``"frequency"`` is plotted in ``freq_unit`` too. With ``errors``, error bars come from the ``<name>_err``
     columns of :func:`~pylabtools.analysis.resonator.fit_res_params` (and from ``<x>_err`` if ``x``
     is a fit result). Emits whose fit failed (NaN) are left out, and so are quality factors with no
     finite value, such as ``Qc`` and ``Qi`` of an inline resonator.
@@ -173,6 +190,8 @@ def plot_res_params(view, x, qs=Q_VALUES, fit="res_params", errors=True, axes=No
     :param title: Optional figure title.
     :param errorbar_kwargs: Keyword arguments for :meth:`~matplotlib.axes.Axes.errorbar`
         (default ``{"capsize": 2, "lw": 1}``).
+    :param freq_unit: Unit of the plotted frequencies: ``"GHz"`` (default), ``"MHz"``, ``"kHz"`` or
+        ``"Hz"``.
     :param kwargs: Passed to :func:`~pylabtools.analysis.plot.scatterplot` and on to
         :meth:`~matplotlib.axes.Axes.scatter` (``s``, ``marker``, ...), for every series.
     :return: ``(fig, axes)``, ``axes`` a dict with the keys ``"Q"`` and ``"fr"``.
@@ -189,9 +208,15 @@ def plot_res_params(view, x, qs=Q_VALUES, fit="res_params", errors=True, axes=No
     missing = [c for c in qs + ["fr"] if c not in points.columns]
     if missing:
         raise KeyError(f"fits[{fit!r}] has no columns {missing}; its columns are {points.columns}.")
+    scale = _frequency_scale(freq_unit)
+    x_name = x
+    x_scale = scale if x in FREQUENCY_NAMES else 1.0
+    x_label = (f"{x} ({freq_unit})" if x in FREQUENCY_NAMES else x) if xlabel is None else xlabel
+    x = _in_unit(x, x_scale)
     fig, axes = _param_axes(axes)
     xs = _per_emit(points, x)
-    xerr = _column_or_none(points, f"{x}_err") if errors and x in points.columns else None
+    xerr = _scaled(_column_or_none(points, f"{x_name}_err"), x_scale) if errors and x_name in points.columns \
+        else None
     bar_kwargs = {"capsize": 2, "lw": 1, **(errorbar_kwargs or {})}
     palette = plt.rcParams["axes.prop_cycle"].by_key().get("color", ["C0", "C1", "C2"])
     plotted = 0
@@ -213,11 +238,11 @@ def plot_res_params(view, x, qs=Q_VALUES, fit="res_params", errors=True, axes=No
     axes["Q"].set_xlabel("")
 
     colour = palette[3 % len(palette)]
-    scatterplot(points, x=x, y="fr", ax=axes["fr"], color=colour, xlabel=x if xlabel is None else xlabel,
-                ylabel="fr (Hz)", **kwargs)
+    scatterplot(points, x=x, y=_in_unit("fr", scale), ax=axes["fr"], color=colour, xlabel=x_label,
+                ylabel=f"fr ({freq_unit})", **kwargs)
     if errors:
-        _bars(axes["fr"], xs, points.data["fr"].to_numpy(dtype=float), xerr, _column_or_none(points, "fr_err"),
-              colour, bar_kwargs)
+        _bars(axes["fr"], xs, points.data["fr"].to_numpy(dtype=float) / scale, xerr,
+              _scaled(_column_or_none(points, "fr_err"), scale), colour, bar_kwargs)
     if title is not None:
         fig.suptitle(title)
     return fig, axes
@@ -241,6 +266,10 @@ def _per_emit(points, expression):
 
 def _column_or_none(points, column):
     return points.data[column].to_numpy(dtype=float) if column in points.columns else None
+
+
+def _scaled(values, scale):
+    return None if values is None else values / scale
 
 
 def _bars(ax, xs, ys, xerr, yerr, colour, kwargs):
