@@ -20,7 +20,8 @@ or, from a clone, in editable mode:
 Dependencies
 ============
 
-The core installs ``numpy``, ``pandas``, ``pymeasure>=0.14`` and ``tables`` (PyTables, for HDF5).
+The core installs ``numpy``, ``pandas``, ``pymeasure>=0.14``, ``scipy`` and ``tables`` (PyTables,
+for HDF5).
 
 Optional extras:
 

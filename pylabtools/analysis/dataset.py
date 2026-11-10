@@ -17,6 +17,7 @@ Views are immutable: :meth:`RecordView.where`, :meth:`RecordView.rows`, :meth:`R
 import numbers
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Mapping
 
 import numpy as np
@@ -131,15 +132,31 @@ class RecordView:
     Normally obtained from a :class:`Dataset`; it can also be built directly from the three tables
     (``data`` indexed by ``(RecordGroup, RecordGroupInd, RecordRow)``, ``proc_params`` and ``meta``
     indexed by ``(RecordGroup, RecordGroupInd)``), e.g. ``read_hdf(..., join=False)``.
+
+    ``fits`` holds the results of analysis steps that change the data, such as
+    :func:`~pylabtools.analysis.resonator.calibrate_cable_delay`: a mapping of step names to tables
+    with one row per emit, indexed by ``(RecordGroup, RecordGroupInd)`` like ``proc_params``. Every
+    selection carries them along. They live only in memory; they are not part of a recorded file.
     """
 
-    def __init__(self, name, data, proc_params, meta):
+    def __init__(self, name, data, proc_params, meta, fits=None):
         self.name = name
         self.data = _with_index(data, DATA_INDEX)
         self.proc_params = _with_index(proc_params, EMIT_INDEX)
         self.meta = _with_index(meta, EMIT_INDEX)
+        # - one row per emit of this view, in its order: NaN for emits a step did not cover - #
+        self._fits = MappingProxyType({step: _with_index(table, EMIT_INDEX).reindex(self.keys)
+                                       for step, table in (fits or {}).items()})
 
     # - basic properties ----------------------------------------------------------------------- #
+    @property
+    def fits(self):
+        """ Results of the analysis steps applied to this view, e.g. ``fits["cable_delay"]``: a
+        read-only mapping of step names to tables with one row per emit (in the order of
+        :attr:`keys`), indexed by ``(RecordGroup, RecordGroupInd)``. Emits a step did not cover
+        have NaN rows. Empty for a view read from a file. """
+        return self._fits
+
     @property
     def groups(self):
         """ The ``RecordGroup`` numbers in this view, sorted. """
@@ -167,8 +184,24 @@ class RecordView:
         return self.emits()
 
     def __repr__(self):
+        fits = f", fits={list(self.fits)}" if self.fits else ""
         return (f"RecordView({self.name!r}, groups={self.groups}, emits={len(self)}, rows={len(self.data)}, "
-                f"columns={self.columns})")
+                f"columns={self.columns}{fits})")
+
+    def with_data(self, data, step=None, table=None):
+        """ A new view with the same emits but new ``data``, optionally recording the per-emit
+        ``table`` of an analysis step in :attr:`fits` as ``step``.
+
+        For analysis steps that transform the data, such as calibrations.
+
+        :raises ValueError: If ``step`` is already in :attr:`fits`.
+        """
+        fits = dict(self.fits)
+        if step is not None:
+            if step in fits:
+                raise ValueError(f"{self.name!r} already has fit results {step!r}; the step was already applied.")
+            fits[step] = table
+        return RecordView(self.name, data, self.proc_params, self.meta, fits=fits)
 
     # - tables --------------------------------------------------------------------------------- #
     def emit_table(self):
@@ -243,23 +276,29 @@ class RecordView:
         :param conditions: Expression strings.
         :return: A new :class:`RecordView`.
         """
-        for condition in conditions:
-            if not isinstance(condition, str):
-                raise TypeError(f"rows() conditions are expression strings such as \"frequency > 9e9\", "
-                                f"not {type(condition).__name__}.")
         if not conditions or self.data.empty:
+            for condition in conditions:
+                _check_expression(condition, "rows()")
             return self
+        return RecordView(self.name, self.data[self._row_mask(conditions, "rows()")], self.proc_params,
+                          self.meta, fits=self.fits)
+
+    def _row_mask(self, conditions, what):
+        """ Boolean array over the rows of :attr:`data`: True where every expression holds, each
+        evaluated per emit with its data columns, parameters and metadata. """
+        for condition in conditions:
+            _check_expression(condition, what)
+        keep = np.ones(len(self.data.index), dtype=bool)
+        if not conditions or self.data.empty:
+            return keep
         shared = set(self.proc_params.columns) & set(self.meta.columns)
         params = self.proc_params.to_dict("index")
         meta = self.meta.to_dict("index")
-        keep = np.zeros(len(self.data.index), dtype=bool)
         for key, positions in self.data.groupby(level=EMIT_INDEX, sort=False).indices.items():
             names = Names(self.data.iloc[positions].droplevel(EMIT_INDEX), params[key], meta[key], shared)
-            inside = np.ones(len(positions), dtype=bool)
             for condition in conditions:
-                inside &= _boolean(evaluate(condition, names, len(positions), what="rows()"), condition, "row")
-            keep[positions] = inside
-        return RecordView(self.name, self.data[keep], self.proc_params, self.meta)
+                keep[positions] &= _boolean(evaluate(condition, names, len(positions), what=what), condition, "row")
+        return keep
 
     def _emit_mask(self, condition):
         if isinstance(condition, str):
@@ -330,7 +369,8 @@ class RecordView:
         if not isinstance(keys, pd.MultiIndex):
             keys = pd.MultiIndex.from_tuples(list(keys), names=EMIT_INDEX) if len(keys) else self.keys[:0]
         rows = self.data.index.droplevel(RECORD_ROW).isin(keys)
-        return RecordView(self.name, self.data[rows], self.proc_params.loc[keys], self.meta.loc[keys])
+        return RecordView(self.name, self.data[rows], self.proc_params.loc[keys], self.meta.loc[keys],
+                          fits=self.fits)
 
     # - iteration and reduction ---------------------------------------------------------------- #
     def emits(self):
@@ -451,7 +491,8 @@ class RecordView:
         if clash:
             raise ValueError(f"align() columns {clash} are already in the metadata of {self.name!r}; "
                              "pass another prefix=.")
-        return RecordView(self.name, self.data, self.proc_params, pd.concat([self.meta, stats], axis=1))
+        return RecordView(self.name, self.data, self.proc_params, pd.concat([self.meta, stats], axis=1),
+                          fits=self.fits)
 
 
 def concat(views, label="dataset", name=None):
@@ -469,7 +510,7 @@ def concat(views, label="dataset", name=None):
     of each view are renumbered to follow those of the view before it, keeping their order. Given a
     mapping, every emit gets a metadata item ``label`` (default ``"dataset"``) holding its view's
     key, to select or colour by. Data columns, parameters or metadata that only some views have
-    are NaN for the emits of the others.
+    are NaN for the emits of the others, as are the :attr:`RecordView.fits` of views without a step.
 
     :param views: A mapping of labels to :class:`RecordView`, or a sequence of them (no labels).
     :param label: Name of the metadata item holding the labels of a mapping.
@@ -495,15 +536,18 @@ def concat(views, label="dataset", name=None):
         if clash:
             raise ValueError(f"concat() label {label!r} is already metadata of the views; pass another label=.")
 
-    data, params, meta, offset = [], [], [], 0
+    data, params, meta, fits, offset = [], [], [], {}, 0
     for key, view in items:
         shift = _group_shift(offset)
         data.append(shift(view.data))
         params.append(shift(view.proc_params))
         meta.append(shift(view.meta) if not labelled else shift(view.meta).assign(**{label: key}))
+        for step, table in view.fits.items():
+            fits.setdefault(step, []).append(shift(table))
         if len(view):
             offset += max(view.groups) + 1
-    return RecordView(name, _concat_frames(data), _concat_frames(params), _concat_frames(meta))
+    return RecordView(name, _concat_frames(data), _concat_frames(params), _concat_frames(meta),
+                      fits={step: _concat_frames(tables) for step, tables in fits.items()})
 
 
 def _group_shift(offset):
@@ -547,6 +591,12 @@ def _view_from_merged(name, merged):
 def _columns_of(table):
     """ The columns of a per-emit table as Series over 0..n-1, for :class:`Names`. """
     return {c: table[c].reset_index(drop=True) for c in table.columns}
+
+
+def _check_expression(condition, what):
+    if not isinstance(condition, str):
+        raise TypeError(f"{what} conditions are expression strings such as \"frequency > 9e9\", "
+                        f"not {type(condition).__name__}.")
 
 
 def _boolean(result, condition, per):

@@ -257,3 +257,73 @@ It takes the arguments of :func:`~pylabtools.analysis.plot.lineplot` except ``x`
 one colour bar or legend for the whole figure. ``axes=`` draws onto three existing Axes,
 ``scatter_kwargs`` styles the I-Q points, and other keyword arguments style the lines. With
 ``average=True``, I and Q are averaged row by row; only differing frequencies are warned about.
+
+Calibration
+-----------
+
+Calibration steps remove the measurement environment from the traces. Each returns a new view with
+corrected ``I`` and ``Q``, and records its results in the view's
+:attr:`~pylabtools.analysis.RecordView.fits`: a table per step, with one row per emit indexed by
+``(RecordGroup, RecordGroupInd)``. The tables follow every selection (``where()``, ``group()``,
+``rows()``, ``concat()``), so they always describe the emits of the view.
+
+:func:`~pylabtools.analysis.resonator.calibrate_cable_delay` fits the unwrapped phase of every
+trace with a straight line, ``phase = slope * frequency + offset``, and removes the slope:
+
+.. code-block:: python
+
+    from pylabtools.analysis.resonator import calibrate_cable_delay
+
+    cal = calibrate_cable_delay(vna)
+    cal.fits["cable_delay"]                  # slope (rad/Hz), offset (rad), delay (s), n per emit
+    plot_res_data(cal, color_by="power")
+
+    # - fit only the rows away from the resonance, but correct them all - #
+    cal = calibrate_cable_delay(vna, fit_rows="abs(frequency - 6e9) > 2e6")
+    cal = calibrate_cable_delay(vna, fit_rows="abs(frequency - f0) > 5 * f0 / Ql")   # per emit
+
+The offset is recorded but not removed; the environment's overall phase is calibrated with its
+amplitude in a later step. By default every row is fitted, including the resonance, whose phase
+change biases the slope: a little for a hanger, a lot for an overcoupled reflection, whose phase
+turns through 2 pi. ``fit_rows`` takes expressions as in ``rows()`` and fits only the rows they
+select, while correcting every row; ``n`` in the table is the number of rows fitted. Gaps left by
+the excluded rows are bridged without phase slips. A step can be applied once per view:
+calibrating the cable delay of a calibrated view raises an error.
+
+:func:`~pylabtools.analysis.resonator.calibrate_constant_scaling` then follows Probst et al. (2015):
+it fits a circle to every trace algebraically, fits the phase about the circle's centre,
+``theta(f) = theta0 + 2*arctan(2*Ql*(1 - f/fr))``, and divides the trace by the off-resonant point
+(the point of the circle opposite the resonance), so the off-resonant point becomes 1:
+
+.. code-block:: python
+
+    from pylabtools.analysis.resonator import calibrate_constant_scaling
+
+    cal = calibrate_cable_delay(vna, fit_rows="abs(frequency - f0) > 5 * f0 / Ql")
+    cal = calibrate_constant_scaling(cal, "hanger", refine_cable_delay=True)
+    cal.fits["constant_scaling"][["fr", "Ql", "a", "alpha", "delay_correction"]]
+
+``geometry`` is ``"hanger"``, ``"reflection"`` or ``"transmission"``. With
+``refine_cable_delay=True``, the remaining delay is refined first, by choosing the correction that
+makes the points lie best on a circle: only the right delay gives a circle, and this uses the whole
+trace, resonance included, so it removes the bias of the straight-line fit. The total delay removed
+is ``fits["cable_delay"]["delay"] + fits["constant_scaling"]["delay_correction"]``.
+
+With evenly spaced frequencies, most points crowd near the off-resonant point and decide the
+circle in an unweighted fit, so a background that is not constant over the span distorts it; the
+trace ends then often curl inside the fitted circle. ``weights="arc_length"`` makes every point
+count by the length of circle it covers instead:
+
+.. code-block:: python
+
+    cal = calibrate_constant_scaling(cal, "reflection", refine_cable_delay=True, weights="arc_length")
+
+The weights apply to the circle and phase fits. This removes most of the background's systematic
+error in ``Ql`` and the circle's diameter, but leaves the diameter noisier, since it rests mostly
+on the off-resonant points; with a constant background and only noise the unweighted fit is
+better. The delay refinement stays unweighted: weighting it tripled the delay's scatter without
+reducing any bias. A linear slope of the background amplitude is not removed by weighting.
+
+An inline (``"transmission"``) resonator has its off-resonant point at the origin, so it is
+normalised to the resonance point instead (``S21(fr) = 1``), and its circle constrains a delay
+refinement only weakly; see :func:`~pylabtools.analysis.resonator.calibrate_constant_scaling`.

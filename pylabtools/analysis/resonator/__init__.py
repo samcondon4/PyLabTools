@@ -11,13 +11,17 @@ parts of the measured S parameter). Three coupling geometries are supported, cho
 ``"transmission"``
     an inline resonator coupled at both ends, measured in S21: a peak.
 
-Plotting (:func:`plot_res_data`) needs matplotlib (``pip install pylabtools[analysis]``) and is
-imported only when first used.
+Calibration steps (:func:`calibrate_cable_delay`, :func:`calibrate_constant_scaling`) return new
+views with corrected data and record their fit results in the view's
+:attr:`~pylabtools.analysis.RecordView.fits`. Plotting
+(:func:`plot_res_data`) needs matplotlib (``pip install pylabtools[analysis]``) and is imported
+only when first used.
 """
+from .calibration import (GEOMETRIES, WEIGHTS, CalibrationWarning, arc_length_weights, calibrate_cable_delay,
+                          calibrate_constant_scaling)
 
-GEOMETRIES = ("hanger", "reflection", "transmission")
-
-__all__ = ["GEOMETRIES", "plot_res_data"]
+__all__ = ["GEOMETRIES", "WEIGHTS", "CalibrationWarning", "arc_length_weights", "calibrate_cable_delay",
+           "calibrate_constant_scaling", "plot_res_data"]
 
 
 def __getattr__(name):

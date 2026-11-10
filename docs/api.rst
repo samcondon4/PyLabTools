@@ -86,7 +86,7 @@ Analysis
 
 .. autoclass:: pylabtools.analysis.RecordView
     :members: groups, keys, columns, params, emit_table, to_frame, group, where, rows, values, emits,
-        reduce, align
+        reduce, align, fits, with_data
 
 .. autoclass:: pylabtools.analysis.Emit
     :members: key, timestamp
@@ -101,7 +101,12 @@ Resonators
 ----------
 
 .. automodule:: pylabtools.analysis.resonator
+    :no-members:
 
+.. autofunction:: pylabtools.analysis.resonator.calibrate_cable_delay
+.. autofunction:: pylabtools.analysis.resonator.calibrate_constant_scaling
+.. autofunction:: pylabtools.analysis.resonator.arc_length_weights
+.. autoexception:: pylabtools.analysis.resonator.CalibrationWarning
 .. autofunction:: pylabtools.analysis.resonator.plot_res_data
 
 Converting 0.9 files

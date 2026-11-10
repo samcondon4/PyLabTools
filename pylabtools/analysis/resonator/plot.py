@@ -16,6 +16,7 @@ from matplotlib import colors as mcolors
 from matplotlib.cm import ScalarMappable
 
 from ..plot import _numeric_colors, lineplot, scatterplot
+from .calibration import _check_trace
 
 __all__ = ["plot_res_data"]
 
@@ -68,10 +69,7 @@ def plot_res_data(view, color_by=None, average=False, xaverage_silent=False, axe
     See :func:`~pylabtools.analysis.plot.lineplot` for ``color_by``, ``average``,
     ``xaverage_silent``, ``cmap``, ``norm``, ``colorbar``, ``clabel`` and ``legend``.
     """
-    missing = [c for c in ("frequency", "I", "Q") if c not in view.columns]
-    if missing:
-        raise KeyError(f"{view.name!r} has no data columns {missing}; resonator traces need 'frequency', "
-                       f"'I' and 'Q'. Columns are {view.columns}.")
+    _check_trace(view)
     fig, axes = _axes(axes)
     numeric = _numeric_colors(view, color_by) if len(view) else None
     if numeric:

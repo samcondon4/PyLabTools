@@ -17,6 +17,7 @@ dependencies = [
     "numpy",
     "pandas",
     "pymeasure>=0.14",
+    "scipy",
     "tables",
 ]
 
