@@ -78,6 +78,44 @@ Viewers
 .. autoclass:: pylabtools.LineViewer
     :members: plot_data
 
+Analysis
+========
+
+.. autoclass:: pylabtools.analysis.Dataset
+    :members: records, record
+
+.. autoclass:: pylabtools.analysis.RecordView
+    :members: groups, keys, columns, params, emit_table, to_frame, group, where, rows, values, emits,
+        reduce, align, fits, with_data
+
+.. autoclass:: pylabtools.analysis.Emit
+    :members: key, timestamp
+
+.. autofunction:: pylabtools.analysis.concat
+
+.. autofunction:: pylabtools.analysis.plot.lineplot
+.. autofunction:: pylabtools.analysis.plot.scatterplot
+.. autoexception:: pylabtools.analysis.plot.AveragingWarning
+
+Resonators
+----------
+
+.. automodule:: pylabtools.analysis.resonator
+    :no-members:
+
+.. autofunction:: pylabtools.analysis.resonator.calibrate_cable_delay
+.. autofunction:: pylabtools.analysis.resonator.calibrate_constant_scaling
+.. autofunction:: pylabtools.analysis.resonator.fit_res_params
+.. autofunction:: pylabtools.analysis.resonator.arc_length_weights
+.. autoexception:: pylabtools.analysis.resonator.CalibrationWarning
+.. autofunction:: pylabtools.analysis.resonator.plot_res_data
+.. autofunction:: pylabtools.analysis.resonator.plot_res_params
+
+Converting 0.9 files
+====================
+
+.. autofunction:: pylabtools.legacy.convert_hdf
+
 GUI
 ===
 

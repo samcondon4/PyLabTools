@@ -55,6 +55,48 @@ Output format changes
 - Schema mismatches raise :class:`~pylabtools.SchemaError` instead of silently misaligning
   columns.
 
+Converting 0.9 data files
+=========================
+
+:func:`plab.legacy.convert_hdf <pylabtools.legacy.convert_hdf>` rewrites an HDF5 file written by the
+0.9 ``HDFRecorder`` as a 1.0 file. The source file is only read, never modified, and an existing
+destination is only replaced with ``overwrite=True``.
+
+.. code-block:: python
+
+    import pylabtools as plab
+
+    plab.legacy.convert_hdf("cooldown_0p9.h5", "cooldown.h5")                  # -> record "record"
+    plab.legacy.convert_hdf("cooldown_0p9.h5", "cooldown.h5", record="s21")    # -> record "s21"
+
+    ds = plab.analysis.Dataset("cooldown.h5")
+
+What changes:
+
+- The top-level ``/data``, ``/proc_params`` and ``/meta`` tables become one record,
+  ``/<record>/data`` etc. 0.9 files do not store a record name, so it is given by ``record``
+  (default ``"record"``). A 0.9 file is assumed to hold one record.
+- The zero-padded string indices (``"000003"``) become the integers 0.9 itself read them as.
+  RecordGroup and RecordGroupInd numbering is kept.
+- ``timestamp`` metadata, stored by 0.9 as local time without a time zone (``"YYYYMMDD_HHMMSS"``
+  strings or naive datetimes), is interpreted in ``timezone`` (default ``"America/Los_Angeles"``)
+  and stored as UTC. Around the autumn clock change, the repeated hour is resolved from the time
+  order of the emits. If the 0.9 file has no ``timestamp``, the 1.0 file has none either; only the
+  time-based modes of :meth:`~pylabtools.analysis.RecordView.align` need one.
+- All other columns, values and types are copied unchanged.
+
+Files whose 0.9 tables have been moved into a group, e.g. by later processing, are converted with
+``record_name``: a string names the group holding ``data``, ``proc_params`` and ``meta``, and a list
+converts several groups. Each output record keeps its group's name, and other groups in the file are
+ignored:
+
+.. code-block:: python
+
+    plab.legacy.convert_hdf("processed.h5", "base.h5", record_name="base")       # base/... -> /base/...
+    plab.legacy.convert_hdf("processed.h5", "both.h5", record_name=["base", "temp_avg_s21"])
+
+0.9 CSV files are not converted yet.
+
 Behaviour fixes
 ===============
 

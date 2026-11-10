@@ -43,6 +43,7 @@ PyLabTools 1.0 is a rewrite of the configuration-file based 0.9 series, which gr
     guide/sequences
     guide/recording
     guide/viewing
+    guide/analysis
 
 .. toctree::
     :maxdepth: 1
