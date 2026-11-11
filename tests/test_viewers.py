@@ -81,3 +81,56 @@ def test_viewer_does_not_delay_run_end():
     with view:
         run = plab.run(Counter(samples=20).connect("counts", view))
         assert run.duration < 0.5
+
+
+# - expressions in x and y ---------------------------------------------------------------------- #
+def test_line_viewer_evaluates_expressions():
+    I, Q = np.array([1.0, 3.0]), np.array([0.0, 4.0])
+    view = LineViewer(x="frequency / 1e9", y=["20*np.log10(np.sqrt(I**2 + Q**2))", "I"],
+                      colors={"I": "r"})
+    feed(view, Record("vna", {"frequency": [1e9, 2e9], "I": I, "Q": Q}))
+    data = view.plot_data()
+    assert list(data) == ["20*np.log10(np.sqrt(I**2 + Q**2))", "I"]
+    x, mag = data["20*np.log10(np.sqrt(I**2 + Q**2))"]
+    assert x.tolist() == [1.0, 2.0]
+    assert np.allclose(mag, [0.0, 20 * np.log10(5.0)])
+
+
+def test_line_viewer_expressions_see_parameters_and_metadata():
+    view = LineViewer(x="t", y=["v - proc_offset", "power", "meta_gain * v"])
+    feed(view, Record("r", {"t": [0.0, 1.0], "v": [5.0, 6.0]},
+                      proc_params={"offset": 1.0, "power": -20.0}, meta={"gain": 2.0, "offset": 9.0}))
+    data = view.plot_data()
+    assert data["v - proc_offset"][1].tolist() == [4.0, 5.0]
+    assert data["power"][1].tolist() == [-20.0, -20.0]  # - scalars repeat for every row - #
+    assert data["meta_gain * v"][1].tolist() == [10.0, 12.0]
+
+
+def test_line_viewer_buffers_evaluated_values_across_records():
+    view = LineViewer(y="2 * v", max_rows=3)
+    feed(view, *[Record("r", {"v": [float(k)]}) for k in range(5)])
+    assert view.snapshot()["2 * v"].tolist() == [4.0, 6.0, 8.0]
+
+
+def test_line_viewer_column_names_that_are_not_expressions():
+    view = LineViewer(x="f (Hz)", y="S21 (dB)")
+    feed(view, Record("r", {"f (Hz)": [1.0, 2.0], "S21 (dB)": [-3.0, -4.0]}))
+    assert view.plot_data()["S21 (dB)"][1].tolist() == [-3.0, -4.0]
+
+
+@pytest.mark.parametrize("y, error, match", [
+    ("np.log10(nope)", NameError, "nope"),
+    ("v *", SyntaxError, "not a valid expression"),
+    ("v[:1]", ValueError, "shape"),
+    ("offset", NameError, "both a procedure parameter and metadata"),
+])
+def test_bad_expressions_fail_the_viewer_only(y, error, match):
+    view = LineViewer(y=y)
+    feed(view, Record("r", {"v": [1.0, 2.0]}, proc_params={"offset": 1}, meta={"offset": 2}))
+    assert view.failed and isinstance(view.exception, error)
+    assert match in str(view.exception)
+
+
+def test_line_viewer_rejects_non_string_columns():
+    with pytest.raises(TypeError, match="column names or expressions"):
+        LineViewer(y=[1])

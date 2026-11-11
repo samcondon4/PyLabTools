@@ -10,14 +10,30 @@ Viewers buffer recent data; :mod:`pylabtools.gui` draws them. The GUI needs the 
                            colors={"s21_mag": "y"})
 
 ``y``
-    Column or list of columns to plot. If omitted, every numeric column except ``x`` is plotted.
+    Column or expression, or a list of them, to plot. If omitted, every numeric column except ``x``
+    is plotted.
 ``x``
-    Column for the horizontal axis; if omitted, points are plotted against their buffer position.
+    Column or expression for the horizontal axis; if omitted, points are plotted against their
+    buffer position.
 ``max_rows``
     Number of rows kept. For a trace, set it to the trace length to show only the latest trace; for
     a time series, it is the length of the rolling window.
 ``clear_on_new_run``
     Empty the plot when a new run starts.
+
+Expressions work as in :func:`~pylabtools.analysis.plot.lineplot`: they see the record's data
+columns as numpy arrays, ``np``, and its procedure parameters and metadata as scalars (prefix with
+``proc_`` / ``meta_`` when a name is in both).
+
+.. code-block:: python
+
+    view = plab.LineViewer(x="frequency / 1e9", y="20*np.log10(np.sqrt(I**2 + Q**2))",
+                           max_rows=10_000, title="|S21| (dB)")
+
+Each expression is evaluated once per record, on the viewer's own thread, so it never slows the
+procedure; the plot legend and ``colors`` use the expression string. An expression that fails (a
+name that does not exist, the wrong number of rows) fails only that viewer, as described under
+`Viewer failures`_.
 
 Plots redraw at most ``fps`` times per second (default 20), and only when new data arrived, so a
 fast procedure never floods the display.

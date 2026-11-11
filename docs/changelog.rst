@@ -14,6 +14,8 @@ Ground-up rewrite. First milestone: the procedure -> emit -> record -> recorder/
 - :class:`~pylabtools.LineViewer` and the optional :mod:`pylabtools.gui`.
 - ``plab.gui.show(..., drive="asyncio")`` drives the GUI from the asyncio loop of a Jupyter
   kernel, without ``%gui qt``.
+- :class:`~pylabtools.LineViewer` ``x`` and ``y`` accept expressions of data columns, parameters
+  and metadata, as in :func:`~pylabtools.analysis.plot.lineplot`.
 - Background tasks with :func:`~pylabtools.every`, ``group_by`` record groups for sequences, and
   :meth:`Procedure.sleep() <pylabtools.Procedure.sleep>`. Consumer hook ``on_run_end`` is now
   ``on_group_end``. Metadata is also evaluated before ``startup()``.

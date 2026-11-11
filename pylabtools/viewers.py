@@ -13,6 +13,7 @@ import threading
 
 import pandas as pd
 
+from .analysis.expressions import Names, evaluate
 from .consumers import Consumer
 from .log import get_logger
 
@@ -93,12 +94,23 @@ class Viewer(Consumer):
 class LineViewer(Viewer):
     """ Buffer data for a line plot of one or more ``y`` columns against an ``x`` column.
 
-    :param y: Column name, or list of column names, to plot. Defaults to every numeric column
-        except ``x``, taken from the first record received.
-    :param x: Column for the horizontal axis. If None, points are plotted against their position in
-        the buffer.
+    ``x`` and ``y`` can be column names or expressions, as in
+    :func:`~pylabtools.analysis.plot.lineplot`::
+
+        LineViewer(x="frequency / 1e9", y="20*np.log10(np.sqrt(I**2 + Q**2))")
+
+    An expression sees the record's data columns as numpy arrays, ``np``, and the record's
+    procedure parameters and metadata as scalars (prefix with ``proc_`` / ``meta_`` when a name is
+    in both); scalars are repeated for every row. Expressions are evaluated once per record as it
+    arrives, on the viewer's thread, and the results are buffered under the expression string.
+
+    :param y: Column name or expression, or a list of them, to plot. Defaults to every numeric
+        column except ``x``, taken from the first record received.
+    :param x: Column name or expression for the horizontal axis. If None, points are plotted
+        against their position in the buffer.
     :param max_rows: Number of points to keep.
-    :param colors: Optional ``{y column: color}`` (any pyqtgraph color, e.g. ``"r"`` or ``"#1f77b4"``).
+    :param colors: Optional ``{y: color}`` (any pyqtgraph color, e.g. ``"r"`` or ``"#1f77b4"``),
+        keyed by the ``y`` strings as given.
     :param title: Plot title; defaults to the viewer name.
     :param kwargs: Further :class:`Viewer` arguments.
     """
@@ -107,6 +119,9 @@ class LineViewer(Viewer):
         super().__init__(max_rows=max_rows, **kwargs)
         self.y = [y] if isinstance(y, str) else (None if y is None else list(y))
         self.x = x
+        for expression in ([] if x is None else [x]) + (self.y or []):
+            if not isinstance(expression, str):
+                raise TypeError(f"x and y must be column names or expressions, not {expression!r}.")
         self.colors = dict(colors or {})
         self.title = title if title is not None else self.name
 
@@ -117,11 +132,14 @@ class LineViewer(Viewer):
                       if c != self.x and pd.api.types.is_numeric_dtype(data[c])
                       and not pd.api.types.is_bool_dtype(data[c])]
         columns = ([self.x] if self.x is not None else []) + self.y
-        missing = [c for c in columns if c not in data.columns]
+        params, meta = record.proc_params, record.meta
+        names = Names(data, params, meta, set(params) & set(meta))
+        missing = [c for c in columns if c.isidentifier() and c not in names]
         if missing:
             raise KeyError(f"{self.name}: record {record.name!r} has no column(s) {missing}; "
                            f"its columns are {list(data.columns)}.")
-        return data[columns]
+        n_rows = len(data.index)
+        return pd.DataFrame({c: evaluate(c, names, n_rows, what=f"{self.name}:") for c in columns})
 
     def plot_data(self):
         """ Return ``{y column: (x values or None, y values)}`` for the buffered data. """
