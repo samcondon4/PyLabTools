@@ -42,10 +42,29 @@ In Jupyter
 
 .. code-block:: python
 
-    %gui qt                       # once per kernel
-    window = plab.gui.show(temp_view, trace_view, run=run)
+    window = plab.gui.show(temp_view, trace_view, run=run, drive="asyncio")
 
-Without blocking, the window updates while you keep working in the notebook.
+The window updates while you keep working in the notebook. ``drive="asyncio"`` processes Qt
+events from a small task on the kernel's own asyncio loop, every 20 ms, so it keeps running while
+the kernel is idle. One task serves all windows and ends when the last window is closed;
+call ``show(..., drive="asyncio")`` again to open a new one.
+
+This is an option of ``show()`` rather than a separate "start the event loop" call because there
+is nothing to start or stop by hand: the task lives exactly as long as the windows it drives.
+
+The alternative is IPython's Qt integration: run ``%gui qt`` once per kernel, then call
+``plab.gui.show(...)`` without ``drive``. On some Windows setups the window hangs with ``%gui qt``;
+``drive="asyncio"`` avoids that mechanism. The two should not run together, so if ``%gui qt`` is
+active, ``drive="asyncio"`` warns and leaves the window to it; run ``%gui`` (no argument) to turn
+it off.
+
+Cell execution blocks the kernel's loop, so a plain long-running cell (``time.sleep``, or
+``plab.wait(run)``) freezes the window until it finishes. Start runs with ``plab.start(...)``,
+which returns immediately, and let the cell end.
+
+.. note::
+
+    On Windows, the most robust option for live plotting is still a script with ``block=True``.
 
 Viewer failures
 ===============

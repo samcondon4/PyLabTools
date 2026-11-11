@@ -24,7 +24,7 @@ dependencies = [
 [project.optional-dependencies]
 gui = ["pyqtgraph", "PyQt5"]
 analysis = ["matplotlib"]
-dev = ["pytest", "pytest-timeout"]
+dev = ["pytest", "pytest-timeout", "nbclient", "ipykernel"]
 docs = ["sphinx", "sphinx-book-theme"]
 
 [project.urls]

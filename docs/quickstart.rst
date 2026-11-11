@@ -88,12 +88,11 @@ joined on. See :doc:`concepts` for what the indices mean.
 In Jupyter
 ==========
 
-The same code works in a notebook. Enable Qt integration once, then show the plot without blocking:
+The same code works in a notebook. Show the plot without blocking and let the kernel drive it:
 
 .. code-block:: python
 
-    %gui qt
-    plab.gui.show(view)
+    plab.gui.show(view, drive="asyncio")
     hdf.start(); view.start()
     run = plab.start(proc)      # the notebook stays usable; run.stop() to stop early
 

@@ -7,12 +7,19 @@ In a script, show the viewers and block until the window is closed::
         plab.gui.show(view, run=run, block=True)  # Ctrl-C stops the run and closes the window
         plab.wait(run)
 
-In Jupyter, enable the Qt event loop once with ``%gui qt`` and call ``plab.gui.show(view)``
-without blocking; the window updates while the notebook stays usable.
+In Jupyter, let the kernel's asyncio loop drive the window; it updates while the notebook stays
+usable::
+
+    window = plab.gui.show(view, run=run, drive="asyncio")
+
+Alternatively run ``%gui qt`` once per kernel and call ``plab.gui.show(view)``.
 """
+import asyncio
 import itertools
 import signal
+import sys
 import threading
+import warnings
 
 try:
     import pyqtgraph as pg
@@ -30,6 +37,10 @@ __all__ = ["LineViewerWidget", "ViewerWindow", "show", "widget_for"]
 
 # - shown windows are kept here so they are not garbage collected - #
 _WINDOWS = []
+
+# - drive="asyncio": seconds between Qt event processing, and the single running pump task - #
+PUMP_INTERVAL = 0.02
+_PUMP = None
 
 
 class LineViewerWidget(QtWidgets.QWidget):
@@ -133,7 +144,7 @@ class ViewerWindow(QtWidgets.QWidget):
         super().closeEvent(event)
 
 
-def show(*viewers, title="PyLabTools", fps=20, columns=1, run=None, block=False):
+def show(*viewers, title="PyLabTools", fps=20, columns=1, run=None, block=False, drive=None):
     """ Open a window displaying ``viewers``.
 
     :param viewers: Viewers to display.
@@ -143,19 +154,69 @@ def show(*viewers, title="PyLabTools", fps=20, columns=1, run=None, block=False)
     :param run: Optional run (or list of runs) whose status is shown in the window. With
         ``block=True``, Ctrl-C stops these runs and waits for their ``shutdown()``.
     :param block: If True, run the Qt event loop until every window is closed (for scripts).
-        Leave False in Jupyter after ``%gui qt``.
+    :param drive: ``"asyncio"`` to process Qt events from a task on the running asyncio loop,
+        such as a Jupyter kernel's, so the window updates without ``%gui qt``. One task serves
+        every window and ends when the last one is closed. If ``%gui qt`` is active, it already
+        drives the window and no task is started. Cannot be combined with ``block=True``.
     :return: The :class:`ViewerWindow`.
     :raises KeyboardInterrupt: If Ctrl-C is pressed while blocking.
+    :raises RuntimeError: With ``drive="asyncio"`` when no asyncio loop is running (in a script,
+        use ``block=True``).
     """
     if not viewers:
         raise ValueError("show() needs at least one viewer.")
+    if drive not in (None, "asyncio"):
+        raise ValueError(f"drive must be None or 'asyncio', not {drive!r}.")
+    if drive and block:
+        raise ValueError("show(): use either block=True (scripts) or drive='asyncio' (notebooks), not both.")
+    if drive:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            raise RuntimeError(
+                "show(drive='asyncio') needs a running asyncio loop, as in Jupyter. "
+                "In a script, use show(..., block=True) instead.") from None
     app = pg.mkQApp("PyLabTools")
     window = ViewerWindow(list(viewers), title=title, fps=fps, columns=columns, run=run)
     window.show()
     _WINDOWS.append(window)
     if block:
         _exec(app, window.runs)
+    elif drive:
+        _start_pump(app, loop)
     return window
+
+
+def _kernel_eventloop():
+    """ The GUI event loop enabled with IPython's ``%gui``, or None (also outside IPython). """
+    ipython = sys.modules.get("IPython")
+    shell = ipython.get_ipython() if ipython is not None else None
+    return getattr(getattr(shell, "kernel", None), "eventloop", None)
+
+
+def _start_pump(app, loop):
+    """ Start the task that processes Qt events, unless it or ``%gui`` is already running. """
+    global _PUMP
+    if _kernel_eventloop() is not None:
+        warnings.warn("%gui is active and drives the window, so drive='asyncio' starts no task. "
+                      "If the window hangs, run %gui (without an argument) to disable it and call "
+                      "show(..., drive='asyncio') again.", RuntimeWarning, stacklevel=3)
+        return
+    if _PUMP is not None and not _PUMP.done():
+        return
+    _PUMP = loop.create_task(_pump(app))
+
+
+async def _pump(app):
+    """ Process Qt events every PUMP_INTERVAL seconds while a window is open. """
+    while _WINDOWS:
+        try:
+            app.processEvents()
+        except KeyboardInterrupt:
+            # - an interrupt while the kernel is idle lands here; ending the task would freeze the window - #
+            logger.info("KeyboardInterrupt ignored by the Qt pump; close the window to stop it.")
+        await asyncio.sleep(PUMP_INTERVAL)
+    app.processEvents()  # - let the last window finish closing - #
 
 
 def _exec(app, runs):
